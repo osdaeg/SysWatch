@@ -1,0 +1,753 @@
+#!/usr/bin/env bash
+#
+# -----------------------------------------------------------------------------
+# SysWatch - Aircraft module
+#
+# Monitors nearby aircraft using the OpenSky Network REST API.
+#
+# Copyright (c) 2026 Daniel Eguren
+# Licensed under the MIT License.
+# -----------------------------------------------------------------------------
+
+readonly MODULE_NAME="Aircraft"
+readonly MODULE_DESCRIPTION="Nearby aircraft from OpenSky Network"
+readonly MODULE_VERSION="0.1.0"
+readonly MODULE_INTERVAL=300
+
+readonly OPENSKY_API_URL="https://opensky-network.org/api/states/all"
+readonly OPENSKY_TOKEN_URL="https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
+
+readonly AIRCRAFT_INFO_RADIUS_KM="${AIRCRAFT_INFO_RADIUS_KM:-5}"
+readonly AIRCRAFT_INFO_ALTITUDE_M="${AIRCRAFT_INFO_ALTITUDE_M:-1500}"
+
+AIRCRAFT_STATUS="${SW_STATUS_UNKNOWN}"
+AIRCRAFT_COUNT=0
+AIRCRAFT_INFO=0
+AIRCRAFT_1_CLOSE=0
+
+AIRCRAFT_1_ICAO=""
+AIRCRAFT_1_CALLSIGN=""
+AIRCRAFT_1_COUNTRY=""
+AIRCRAFT_1_DISTANCE=""
+AIRCRAFT_1_ALTITUDE=""
+AIRCRAFT_1_SPEED=""
+AIRCRAFT_1_TRACK=""
+
+AIRCRAFT_2_ICAO=""
+AIRCRAFT_2_CALLSIGN=""
+AIRCRAFT_2_COUNTRY=""
+AIRCRAFT_2_DISTANCE=""
+AIRCRAFT_2_ALTITUDE=""
+AIRCRAFT_2_SPEED=""
+AIRCRAFT_2_TRACK=""
+
+# Country display map:
+#
+#   Argentina -> 🇦🇷 Argentina
+#   Chile     -> 🇨🇱 Chile
+#
+declare -A AIRCRAFT_COUNTRIES=()
+
+# -----------------------------------------------------------------------------
+# Countries
+# -----------------------------------------------------------------------------
+
+aircraft_load_countries() {
+
+    local country
+    local iso
+    local flag
+
+    AIRCRAFT_COUNTRIES=()
+
+    if ! sw_cache_exists "countries.map"; then
+        return 0
+    fi
+
+    while IFS='|' read -r country iso flag; do
+
+        [[ -n "${country}" ]] || continue
+        [[ -n "${flag}" ]] || continue
+
+        AIRCRAFT_COUNTRIES["${country}"]="${flag} ${country}"
+
+    done < <(sw_cache_read "countries.map")
+
+}
+
+
+
+aircraft_country_display() {
+
+    local country="$1"
+
+    if [[ -n "${AIRCRAFT_COUNTRIES[$country]:-}" ]]; then
+        printf '%s' "${AIRCRAFT_COUNTRIES[$country]}"
+    else
+        printf '%s' "$country"
+    fi
+
+}
+
+# -----------------------------------------------------------------------------
+# OpenSky token
+# -----------------------------------------------------------------------------
+
+aircraft_token_get() {
+
+    local token_file
+    local token
+    local expires_at
+    local now
+
+    token_file="$(sw_cache_file "opensky.token")"
+
+    if [[ -r "${token_file}" ]]; then
+
+        token="$(sed -n '1p' "${token_file}")"
+        expires_at="$(sed -n '2p' "${token_file}")"
+        now="$(date +%s)"
+
+        if [[ -n "${token}" &&
+              "${expires_at}" =~ ^[0-9]+$ &&
+              "${expires_at}" -gt "${now}" ]]; then
+
+            printf '%s\n' "${token}"
+            return 0
+
+        fi
+
+    fi
+
+    [[ -n "${OPENSKY_CLIENT_ID:-}" ]] || {
+
+        sw_log_info \
+            "${MODULE_NAME}" \
+            "OPENSKY_CLIENT_ID no configurado"
+
+        return 1
+    }
+
+    [[ -n "${OPENSKY_CLIENT_SECRET:-}" ]] || {
+
+        sw_log_info \
+            "${MODULE_NAME}" \
+            "OPENSKY_CLIENT_SECRET no configurado"
+
+        return 1
+    }
+
+    token="$(
+        curl -sS --fail \
+            -X POST \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode 'grant_type=client_credentials' \
+            --data-urlencode "client_id=${OPENSKY_CLIENT_ID}" \
+            --data-urlencode "client_secret=${OPENSKY_CLIENT_SECRET}" \
+            "${OPENSKY_TOKEN_URL}" |
+            jq -er '.access_token'
+    )" || {
+
+        sw_log_info \
+            "${MODULE_NAME}" \
+            "No se pudo obtener el token de OpenSky"
+
+        return 1
+    }
+
+    # OpenSky tokens duran aproximadamente 30 minutos.
+    # Dejamos margen para evitar reutilizar uno cerca de su expiración.
+    expires_at="$(( $(date +%s) + 1500 ))"
+
+    umask 077
+
+    {
+        printf '%s\n' "${token}"
+        printf '%s\n' "${expires_at}"
+    } > "${token_file}"
+
+    printf '%s\n' "${token}"
+}
+
+# -----------------------------------------------------------------------------
+# Distance - Haversine
+# -----------------------------------------------------------------------------
+
+aircraft_distance_km() {
+
+    local lat="$1"
+    local lon="$2"
+
+    awk \
+        -v lat1="${WEATHER_LAT}" \
+        -v lon1="${WEATHER_LON}" \
+        -v lat2="${lat}" \
+        -v lon2="${lon}" '
+
+        function rad(x) {
+            return x * atan2(0, -1) / 180
+        }
+
+        BEGIN {
+
+            r = 6371.0
+
+            p1 = rad(lat1)
+            p2 = rad(lat2)
+
+            dp = rad(lat2 - lat1)
+            dl = rad(lon2 - lon1)
+
+            a = sin(dp / 2)^2 + \
+                cos(p1) * cos(p2) * sin(dl / 2)^2
+
+            c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
+            printf "%.2f\n", r * c
+        }
+    '
+}
+
+# -----------------------------------------------------------------------------
+# OpenSky bounding box
+# -----------------------------------------------------------------------------
+
+aircraft_bbox() {
+
+    local lat="${WEATHER_LAT}"
+    local lon="${WEATHER_LON}"
+    local radius="${OPENSKY_RADIUS_KM:-40}"
+
+    awk \
+        -v lat="${lat}" \
+        -v lon="${lon}" \
+        -v radius="${radius}" '
+
+        BEGIN {
+
+            lat_delta = radius / 111.32
+
+            cos_lat = cos(lat * atan2(0, -1) / 180)
+
+            if (cos_lat < 0.01)
+                cos_lat = 0.01
+
+            lon_delta = radius / (111.32 * cos_lat)
+
+            printf "%.6f %.6f %.6f %.6f\n",
+                lat - lat_delta,
+                lon - lon_delta,
+                lat + lat_delta,
+                lon + lon_delta
+        }
+    '
+}
+
+# -----------------------------------------------------------------------------
+# Collect aircraft
+# -----------------------------------------------------------------------------
+
+aircraft_collect() {
+
+    local token
+    local bbox
+    local lamin
+    local lomin
+    local lamax
+    local lomax
+    local json
+    local states_count
+
+    token="$(aircraft_token_get)" || return 1
+
+    read -r lamin lomin lamax lomax <<< "$(aircraft_bbox)"
+
+    json="$(
+        curl -sS --fail \
+            --connect-timeout 10 \
+            --max-time 20 \
+            -H "Authorization: Bearer ${token}" \
+            --get \
+            --data-urlencode "lamin=${lamin}" \
+            --data-urlencode "lomin=${lomin}" \
+            --data-urlencode "lamax=${lamax}" \
+            --data-urlencode "lomax=${lomax}" \
+            "${OPENSKY_API_URL}"
+    )" || {
+
+        sw_log_info \
+            "${MODULE_NAME}" \
+            "Error consultando OpenSky"
+
+        return 1
+    }
+
+    states_count="$(
+        jq -r '.states // [] | length' <<< "${json}"
+    )"
+
+    if [[ ! "${states_count}" =~ ^[0-9]+$ ]]; then
+
+        sw_log_info \
+            "${MODULE_NAME}" \
+            "Respuesta inválida de OpenSky"
+
+        return 1
+    fi
+
+    # -------------------------------------------------------------------------
+    # Reset current data
+    # -------------------------------------------------------------------------
+
+    AIRCRAFT_COUNT=0
+    AIRCRAFT_INFO=0
+    AIRCRAFT_1_CLOSE=0
+
+    AIRCRAFT_1_ICAO=""
+    AIRCRAFT_1_CALLSIGN=""
+    AIRCRAFT_1_COUNTRY=""
+    AIRCRAFT_1_DISTANCE=""
+    AIRCRAFT_1_ALTITUDE=""
+    AIRCRAFT_1_SPEED=""
+    AIRCRAFT_1_TRACK=""
+
+    AIRCRAFT_2_ICAO=""
+    AIRCRAFT_2_CALLSIGN=""
+    AIRCRAFT_2_COUNTRY=""
+    AIRCRAFT_2_DISTANCE=""
+    AIRCRAFT_2_ALTITUDE=""
+    AIRCRAFT_2_SPEED=""
+    AIRCRAFT_2_TRACK=""
+
+    # -------------------------------------------------------------------------
+    # Extract airborne aircraft.
+    #
+    # OpenSky state vector indexes:
+    #
+    # 0  ICAO24
+    # 1  callsign
+    # 2  origin country
+    # 5  longitude
+    # 6  latitude
+    # 7  barometric altitude
+    # 8  on ground
+    # 9  velocity
+    # 10 true track
+    # -------------------------------------------------------------------------
+
+    local aircraft_list
+
+    aircraft_list="$(
+        jq -r '
+            (.states // [])
+            | map(select(.[8] == false))
+            | .[]
+            | [
+                .[0],
+                (.[1] // "" | gsub("^\\s+|\\s+$"; "")),
+                (.[2] // ""),
+                .[5],
+                .[6],
+                (.[7] // null),
+                (.[9] // null),
+                (.[10] // null)
+            ]
+            | @tsv
+        ' <<< "${json}"
+    )"
+
+    # No airborne aircraft.
+    [[ -n "${aircraft_list}" ]] || return 0
+
+    # -------------------------------------------------------------------------
+    # Calculate distances
+    # -------------------------------------------------------------------------
+
+    local sorted_list=""
+
+    local icao
+    local callsign
+    local country
+    local lon
+    local lat
+    local altitude
+    local speed
+    local track
+    local distance
+
+    while IFS=$'\t' read -r \
+        icao \
+        callsign \
+        country \
+        lon \
+        lat \
+        altitude \
+        speed \
+        track
+    do
+
+        [[ -n "${lat}" && -n "${lon}" ]] || continue
+
+        distance="$(
+            aircraft_distance_km "${lat}" "${lon}"
+        )"
+
+        # Never allow a failed distance calculation to shift columns.
+        [[ "${distance}" =~ ^[0-9]+([.][0-9]+)?$ ]] || continue
+
+        sorted_list+="${distance}"$'\t'"${icao}"$'\t'"${callsign}"$'\t'"${country}"$'\t'"${altitude}"$'\t'"${speed}"$'\t'"${track}"$'\n'
+
+    done <<< "${aircraft_list}"
+
+    AIRCRAFT_COUNT="$(
+        grep -c '.' <<< "${sorted_list}"
+    )"
+
+    [[ "${AIRCRAFT_COUNT}" =~ ^[0-9]+$ ]] || AIRCRAFT_COUNT=0
+
+    (( AIRCRAFT_COUNT > 0 )) || return 0
+
+    # -------------------------------------------------------------------------
+    # Sort by distance and keep only the two nearest.
+    # -------------------------------------------------------------------------
+
+    local index=0
+
+    while IFS=$'\t' read -r \
+        distance \
+        icao \
+        callsign \
+        country \
+        altitude \
+        speed \
+        track
+    do
+
+        (( index++ ))
+
+        if (( index == 1 )); then
+
+            AIRCRAFT_1_ICAO="${icao}"
+            AIRCRAFT_1_CALLSIGN="${callsign}"
+            AIRCRAFT_1_COUNTRY="${country}"
+            AIRCRAFT_1_DISTANCE="${distance}"
+            AIRCRAFT_1_ALTITUDE="${altitude}"
+            AIRCRAFT_1_SPEED="${speed}"
+            AIRCRAFT_1_TRACK="${track}"
+
+        elif (( index == 2 )); then
+
+            AIRCRAFT_2_ICAO="${icao}"
+            AIRCRAFT_2_CALLSIGN="${callsign}"
+            AIRCRAFT_2_COUNTRY="${country}"
+            AIRCRAFT_2_DISTANCE="${distance}"
+            AIRCRAFT_2_ALTITUDE="${altitude}"
+            AIRCRAFT_2_SPEED="${speed}"
+            AIRCRAFT_2_TRACK="${track}"
+
+            break
+        fi
+
+    done < <(
+        printf '%s' "${sorted_list}" |
+            sort -n -k1,1
+    )
+
+    # -------------------------------------------------------------------------
+    # INFO is determined ONLY by the nearest aircraft.
+    #
+    # Both conditions must be satisfied:
+    #
+    #   distance <= AIRCRAFT_INFO_RADIUS_KM
+    #   altitude <= AIRCRAFT_INFO_ALTITUDE_M
+    #
+    # If altitude is null, the aircraft cannot trigger INFO.
+    # -------------------------------------------------------------------------
+
+    if [[ "${AIRCRAFT_1_DISTANCE}" =~ ^[0-9]+([.][0-9]+)?$ &&
+          "${AIRCRAFT_1_ALTITUDE}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+
+        if awk \
+            -v distance="${AIRCRAFT_1_DISTANCE}" \
+            -v radius="${AIRCRAFT_INFO_RADIUS_KM}" \
+            -v altitude="${AIRCRAFT_1_ALTITUDE}" \
+            -v max_altitude="${AIRCRAFT_INFO_ALTITUDE_M}" '
+
+            BEGIN {
+                exit !(distance <= radius && altitude <= max_altitude)
+            }
+        '
+        then
+            AIRCRAFT_INFO=1
+            AIRCRAFT_1_CLOSE=1
+        fi
+    fi
+
+    return 0
+}
+
+# -----------------------------------------------------------------------------
+# Analyze
+# -----------------------------------------------------------------------------
+
+aircraft_analyze() {
+
+    AIRCRAFT_STATUS="${SW_STATUS_OK}"
+
+    if (( AIRCRAFT_INFO == 1 )); then
+        AIRCRAFT_STATUS="${SW_STATUS_INFO}"
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Delete state keys
+# -----------------------------------------------------------------------------
+
+aircraft_delete_nearest_state() {
+
+    sw_state_delete_key "nearest.icao"
+    sw_state_delete_key "nearest.callsign"
+    sw_state_delete_key "nearest.country"
+    sw_state_delete_key "nearest.distance"
+    sw_state_delete_key "nearest.distance.label"
+    sw_state_delete_key "nearest.distance.unit"
+    sw_state_delete_key "nearest.distance.order"
+    sw_state_delete_key "nearest.altitude"
+    sw_state_delete_key "nearest.altitude.label"
+    sw_state_delete_key "nearest.altitude.unit"
+    sw_state_delete_key "nearest.altitude.order"
+    sw_state_delete_key "nearest.speed"
+    sw_state_delete_key "nearest.speed.label"
+    sw_state_delete_key "nearest.speed.unit"
+    sw_state_delete_key "nearest.speed.order"
+    sw_state_delete_key "nearest.track"
+    sw_state_delete_key "nearest.track.label"
+    sw_state_delete_key "nearest.track.unit"
+    sw_state_delete_key "nearest.track.order"
+    sw_state_delete_key "nearest.close"
+    sw_state_delete_key "nearest.close.label"
+}
+
+aircraft_delete_second_state() {
+
+    sw_state_delete_key "second.icao"
+    sw_state_delete_key "second.callsign"
+    sw_state_delete_key "second.country"
+    sw_state_delete_key "second.distance"
+    sw_state_delete_key "second.distance.label"
+    sw_state_delete_key "second.distance.unit"
+    sw_state_delete_key "second.distance.order"
+    sw_state_delete_key "second.altitude"
+    sw_state_delete_key "second.altitude.label"
+    sw_state_delete_key "second.altitude.unit"
+    sw_state_delete_key "second.altitude.order"
+    sw_state_delete_key "second.speed"
+    sw_state_delete_key "second.speed.label"
+    sw_state_delete_key "second.speed.unit"
+    sw_state_delete_key "second.speed.order"
+    sw_state_delete_key "second.track"
+    sw_state_delete_key "second.track.label"
+    sw_state_delete_key "second.track.unit"
+    sw_state_delete_key "second.track.order"
+}
+
+# -----------------------------------------------------------------------------
+# Update state
+# -----------------------------------------------------------------------------
+
+aircraft_update_state() {
+
+    sw_state_set "module_version" "${MODULE_VERSION}"
+
+    sw_state_set "module.label" "Aircraft"
+    sw_state_set "module.icon" "lucide/plane"
+    sw_state_set "module.order" "1200"
+
+    # -------------------------------------------------------------------------
+    # Count
+    # -------------------------------------------------------------------------
+
+    sw_state_set "count" "${AIRCRAFT_COUNT}"
+    sw_state_set "count.label" "Aircraft"
+    sw_state_set "count.widget" "number"
+    sw_state_set "count.order" "10"
+
+    # -------------------------------------------------------------------------
+    # No aircraft
+    # -------------------------------------------------------------------------
+
+    if (( AIRCRAFT_COUNT == 0 )); then
+
+        aircraft_delete_nearest_state
+        aircraft_delete_second_state
+
+        return 0
+    fi
+
+    # -------------------------------------------------------------------------
+    # Nearest aircraft
+    # -------------------------------------------------------------------------
+
+    sw_state_set "nearest.icao" "${AIRCRAFT_1_ICAO}"
+    sw_state_set "nearest.callsign" "${AIRCRAFT_1_CALLSIGN}"
+    sw_state_set \
+        "nearest.country" \
+        "$(aircraft_country_display "${AIRCRAFT_1_COUNTRY}")"
+
+    sw_state_set "nearest.distance" "${AIRCRAFT_1_DISTANCE}"
+    sw_state_set "nearest.distance.label" "Distance"
+    sw_state_set "nearest.distance.unit" "km"
+    sw_state_set "nearest.distance.order" "30"
+
+    sw_state_set "nearest.altitude" "${AIRCRAFT_1_ALTITUDE}"
+    sw_state_set "nearest.altitude.label" "Altitude"
+    sw_state_set "nearest.altitude.unit" "m"
+    sw_state_set "nearest.altitude.order" "40"
+
+    sw_state_set "nearest.speed" "${AIRCRAFT_1_SPEED}"
+    sw_state_set "nearest.speed.label" "Speed"
+    sw_state_set "nearest.speed.unit" "m/s"
+    sw_state_set "nearest.speed.order" "50"
+
+    sw_state_set "nearest.track" "${AIRCRAFT_1_TRACK}"
+    sw_state_set "nearest.track.label" "Track"
+    sw_state_set "nearest.track.unit" "°"
+    sw_state_set "nearest.track.order" "60"
+
+    if (( AIRCRAFT_1_CLOSE == 1 )); then
+
+        sw_state_set "nearest.close" "1"
+        sw_state_set "nearest.close.label" "Cercano"
+
+    else
+
+        sw_state_delete_key "nearest.close"
+        sw_state_delete_key "nearest.close.label"
+
+    fi
+
+    # -------------------------------------------------------------------------
+    # Second nearest aircraft
+    # -------------------------------------------------------------------------
+
+    if (( AIRCRAFT_COUNT >= 2 )); then
+
+        sw_state_set "second.icao" "${AIRCRAFT_2_ICAO}"
+        sw_state_set "second.callsign" "${AIRCRAFT_2_CALLSIGN}"
+        sw_state_set \
+            "second.country" \
+            "$(aircraft_country_display "${AIRCRAFT_2_COUNTRY}")"
+
+        sw_state_set "second.distance" "${AIRCRAFT_2_DISTANCE}"
+        sw_state_set "second.distance.label" "Distance"
+        sw_state_set "second.distance.unit" "km"
+        sw_state_set "second.distance.order" "70"
+
+        sw_state_set "second.altitude" "${AIRCRAFT_2_ALTITUDE}"
+        sw_state_set "second.altitude.label" "Altitude"
+        sw_state_set "second.altitude.unit" "m"
+        sw_state_set "second.altitude.order" "80"
+
+        sw_state_set "second.speed" "${AIRCRAFT_2_SPEED}"
+        sw_state_set "second.speed.label" "Speed"
+        sw_state_set "second.speed.unit" "m/s"
+        sw_state_set "second.speed.order" "90"
+
+        sw_state_set "second.track" "${AIRCRAFT_2_TRACK}"
+        sw_state_set "second.track.label" "Track"
+        sw_state_set "second.track.unit" "°"
+        sw_state_set "second.track.order" "100"
+
+    else
+
+        aircraft_delete_second_state
+
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Report
+# -----------------------------------------------------------------------------
+
+aircraft_report() {
+
+    if (( AIRCRAFT_INFO == 1 )); then
+
+        sw_log_info \
+            "${MODULE_NAME}" \
+            "INFO: ${AIRCRAFT_1_CALLSIGN:-unknown} a ${AIRCRAFT_1_DISTANCE} km / ${AIRCRAFT_1_ALTITUDE} m"
+
+    else
+
+        sw_log_info \
+            "${MODULE_NAME}" \
+            "Aeronaves en vuelo: ${AIRCRAFT_COUNT}; próximas: ${AIRCRAFT_1_CALLSIGN:-ninguna}, ${AIRCRAFT_2_CALLSIGN:-ninguna}"
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Module entry point
+# -----------------------------------------------------------------------------
+
+sw_module_run() {
+
+    sw_state_use "aircraft"
+    sw_state_load
+
+    local previous_status="${status:-${SW_STATUS_UNKNOWN}}"
+
+    # -------------------------------------------------------------------------
+    # Load countries map
+    # -------------------------------------------------------------------------
+
+    aircraft_load_countries
+
+    # -------------------------------------------------------------------------
+    # OpenSky failure
+    # -------------------------------------------------------------------------
+
+    if ! aircraft_collect; then
+
+        AIRCRAFT_STATUS="${SW_STATUS_WARNING}"
+
+        sw_status_update "${AIRCRAFT_STATUS}" || return 1
+
+        aircraft_update_state
+        sw_state_save
+
+        sw_log_info \
+            "${MODULE_NAME}" \
+            "No se pudo actualizar OpenSky"
+
+        return 0
+    fi
+
+    # -------------------------------------------------------------------------
+    # Analyze
+    # -------------------------------------------------------------------------
+
+    aircraft_analyze
+
+    # -------------------------------------------------------------------------
+    # INFO timer:
+    #
+    # Create it only when entering INFO.
+    # -------------------------------------------------------------------------
+
+    if [[ "${AIRCRAFT_STATUS}" == "${SW_STATUS_INFO}" &&
+          "${previous_status}" != "${SW_STATUS_INFO}" ]]; then
+
+        sw_timer_create "aircraft" "5" "statusok"
+    fi
+
+    # -------------------------------------------------------------------------
+    # Status + state
+    # -------------------------------------------------------------------------
+
+    sw_status_update "${AIRCRAFT_STATUS}" || return 1
+
+    aircraft_update_state
+    sw_state_save
+
+    aircraft_report
+}
