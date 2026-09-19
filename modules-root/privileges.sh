@@ -62,7 +62,7 @@ update_state() {
 
     sw_state_set "module.label" "ROOT"
     sw_state_set "module.icon" "lucide/user-lock"
-    sw_state_set "module.order" "700"
+    sw_state_set "module.order" "7000"
     
     
     sw_state_set "user.label"  "Usuario"

@@ -20,6 +20,75 @@
 #   sw_config_load weather
 #
 
+sw_module_global_config_check() {
+
+    if [[ ! -f "$PROJECT_DIR/config/modules.conf" ]]; then
+        if ! sw_is_root; then
+            touch "$PROJECT_DIR/config/modules.conf"
+        else
+            return 1
+        fi
+    fi
+
+    return 0
+
+}
+
+sw_module_global_config_load() {
+
+    local module=$1
+    local line=""
+    local values=""
+
+    if ! declare -p MODULE_ORDER &>/dev/null; then
+        MODULE_ORDER=""
+    fi
+
+    if ! declare -p MODULE_REMOTE &>/dev/null; then
+        MODULE_REMOTE=""
+    fi
+
+    if sw_module_global_config_check; then
+        line=$(grep "^${module}=" "$PROJECT_DIR/config/modules.conf")
+
+        if [ -n "$line" ]; then
+            values="${line#${module}=}"
+
+            IFS="|" read -r val1 val2 val3 <<< "$values"
+
+            [[ -n "$val1" ]] && MODULE_INTERVAL="$val1"
+            [[ -n "$val2" ]] && MODULE_ORDER="$val2"
+            [[ -n "$val3" ]] && MODULE_REMOTE="$val3"
+        fi
+
+    else
+        return 1
+    fi
+
+    return 0
+}
+
+sw_module_global_config_save() {
+
+    local module=$1
+    local interval=$2
+    local order=$3
+    local remote=$4
+
+    local chain="${interval}|${order}|${remote}"
+
+    local file="$PROJECT_DIR/config/modules.conf"
+
+    if grep -q "^${module}=" "$file"; then
+        sed -i "s#^${module}=.*#${module}=${chain}#" "$file"
+    else
+        echo "${module}=${chain}" >> "$file"
+    fi
+
+    return 0
+
+}
+
 sw_module_load_config() {
 
     local module="$1"

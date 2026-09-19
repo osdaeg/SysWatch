@@ -28,7 +28,10 @@
 readonly MODULE_NAME="Backrest"
 readonly MODULE_DESCRIPTION="Backrest (restic) backup monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=86400
+MODULE_INTERVAL=${MODULE_INTERVAL:-86400}
+MODULE_ORDER=${MODULE_ORDER:-43}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -138,7 +141,7 @@ backrest_process_plan() {
         sw_state_set "module_version" "${MODULE_VERSION}"
         sw_state_set "module.label" "restic: ${plan}"
         sw_state_set "module.icon" "lucide/archive"
-        sw_state_set "module.order" "43"
+        sw_state_set "module.order" "$MODULE_ORDER"
         sw_state_set "detail" "Sin corridas registradas"
         sw_state_set "detail.label" "Detalle"
         sw_state_save
@@ -203,7 +206,7 @@ backrest_process_plan() {
 
     sw_state_set "module.label" "restic: ${plan}"
     sw_state_set "module.icon" "lucide/archive"
-    sw_state_set "module.order" "43"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "backup_status" "${status}"
     sw_state_set "backup_status.label" "Estado"

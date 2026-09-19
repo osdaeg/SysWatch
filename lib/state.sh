@@ -14,6 +14,14 @@
 # -----------------------------------------------------------------------------
 
 SW_STATE_MODULE=""
+SW_STATE_REMOTE=false
+
+SW_STATE_MODULE_PREVIOUS=""
+SW_STATE_REMOTE_PREVIOUS=false
+STATE_DIR_PREVIOUS=""
+
+SW_STATE_REMOTE_FILE=""
+SW_STATE_REMOTE_DIR=""
 
 declare -gA SW_STATE
 
@@ -51,6 +59,38 @@ sw_state_delete_key() {
 sw_state_use() {
 
     SW_STATE_MODULE="$1"
+
+}
+
+sw_state_remote() {
+
+    local remote=$1
+    
+    if [ -n "$remote" ] && [ -d "${REMOTE_DIR}/$remote" ]; then
+    
+        if sw_check_remote 3 "${REMOTE_DIR}/$remote"; then
+            
+            SW_STATE_REMOTE_DIR="${REMOTE_DIR}/$remote"
+            SW_STATE_REMOTE=true
+            SW_STATE_REMOTE_FILE="${SW_STATE_REMOTE_DIR}/${SW_STATE_MODULE}-${HOSTNAME_ALIAS}.state"
+            SW_STATE_MODULE_PREVIOUS=${SW_STATE_MODULE}
+    
+        else
+        
+            SW_STATE_REMOTE=false
+            SW_STATE_REMOTE_DIR=
+            SW_STATE_REMOTE_FILE=
+        fi
+       
+    else
+       return 1
+    fi
+}
+
+sw_state_restore() {
+
+    SW_STATE_MODULE="$SW_STATE_MODULE_PREVIOUS"
+    SW_STATE_REMOTE=false
 
 }
 
@@ -111,16 +151,53 @@ sw_state_set() {
 
 }
 
+sw_state_append_hostname() {
+
+    sw_state_set "sw_hostname" "$HOSTNAME_ALIAS"
+    sw_state_set "sw_hostname.label" "Host"
+    sw_state_set "sw_hostname.order" "1000"
+    sw_state_set "sw_hostname.hidden" "true"
+    
+}
+
+sw_state_temporal_copy() {
+
+    mv "$SW_STATE_REMOTE_DIR"/*.csv "$IMPORT_DIR"
+
+    mv "$SW_STATE_REMOTE_FILE" "$IMPORT_DIR"
+    mv "$SW_STATE_REMOTE_DIR/$SW_STATE_MODULE-$HOSTNAME_ALIAS.timer" "$IMPORT_DIR"
+ 
+    
+    
+}
+
 sw_state_save() {
 
     local file
     local key
+    local total
+    
+    sw_state_append_hostname
+    
+    if [ "$SW_STATE_REMOTE" == "true" ]; then
+    
+        sw_state_set "sw_hostname.hidden" "false"
+        
+        
+        
+    else
+    
+         sw_state_set "sw_hostname.hidden" "true"
+        
+    fi
 
     file="$(sw_state_file)"
 
     sw_mkdir "${STATE_DIR}"
 
     : > "${file}"
+    
+    #echo "$SW_STATE_MODULE|$file|$STATE_DIR" >> ~/scripts/syswatch/problemas.txt
 
     while IFS= read -r key; do
 
@@ -131,6 +208,30 @@ sw_state_save() {
     done < <(
         printf '%s\n' "${!SW_STATE[@]}" | sort
     ) >> "${file}"
+    
+    if [ "$SW_STATE_REMOTE" == "true" ]; then
+
+        if [[ -f "$SW_STATE_REMOTE_DIR/.import" ]]; then
+    
+             cp "$file" "$SW_STATE_REMOTE_FILE"
+
+             total=$(sw_timer_from_module)
+        
+             sw_timer_create_raw "$SW_STATE_MODULE-$HOSTNAME_ALIAS" "$SW_STATE_REMOTE_DIR" "$total" "deletestate"
+
+             #sw_state_temporal_copy
+
+             sw_csv_export_remote \
+                "${SW_STATE_MODULE}" \
+                "${SW_STATE_REMOTE_DIR}" \
+                "${SW_STATE_MODULE}-${HOSTNAME_ALIAS}"
+        fi    
+           
+    fi
+    
+    
+
+   # sw_state_restore
 
 }
 

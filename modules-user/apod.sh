@@ -19,7 +19,10 @@
 readonly MODULE_NAME="APOD"
 readonly MODULE_DESCRIPTION="Show APOD"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=43200
+MODULE_INTERVAL=${MODULE_INTERVAL:-43200}
+MODULE_ORDER=${MODULE_ORDER:-800}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -82,7 +85,7 @@ apod_update_state() {
 
     sw_state_set "module.label" "APOD"
     sw_state_set "module.icon" "lucide/telescope"
-    sw_state_set "module.order" "800"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
     # Data

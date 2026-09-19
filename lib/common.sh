@@ -27,11 +27,48 @@ readonly CONFIG_DIR="${PROJECT_DIR}/config"
 : "${HTML_DIR:=${PROJECT_DIR}/html}"
 : "${TIMER_DIR:=${PROJECT_DIR}/timer}"
 : "${IMPORT_DIR:=${PROJECT_DIR}/import}"
+: "${REMOTE_DIR:=${PROJECT_DIR}/remote}"
 
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
+
+sw_check_remote() {
+
+    local timeout=$1
+    local remote=$2
+
+    if ! read -t "$timeout" < <(
+        stat -t "$remote" 2>/dev/null
+    ); then
+        return 1
+    fi
+}
+
+sw_create_remote_dirs() {
+
+   
+    shopt -s extglob
+
+
+    if [[ -z "${REMOTES//+([ ,])}" ]]; then
+        echo "La variable REMOTES está vacía o no es válida. Saltando creación."
+    else
+   
+        IFS=',' read -ra CARPETAS <<< "$REMOTES"
+
+        for carpeta in "${CARPETAS[@]}"; do
+        
+            if [[ -n "$carpeta" ]]; then
+                mkdir -p "$REMOTE_DIR/$carpeta"
+            fi
+        done
+    fi
+
+
+    shopt -u extglob
+}
 
 sw_sanitize_state_value() {
     printf '%s' "$1" |
@@ -42,6 +79,22 @@ sw_sanitize_state_value() {
 sw_import() {
     # Crear IMPORT_DIR si no existe
     [[ -d "$IMPORT_DIR" ]] || mkdir -p "$IMPORT_DIR"
+    [[ -f "$IMPORT_DIR/.import" ]] || touch "$IMPORT_DIR/.import"
+
+    for csv in "${IMPORT_DIR}"/*.csv; do
+        [[ -f "${csv}" ]] || continue
+
+        filename="${csv##*/}"
+
+        remote_module="${filename%%.*}"
+        metric="${filename#*.}"
+        metric="${metric%.csv}"
+
+        mkdir -p "${CSV_DIR}/${remote_module}"
+
+        mv "${csv}" \
+            "${CSV_DIR}/${remote_module}/${metric}.csv"
+    done
 
     # Mover archivos .state si existen
     if compgen -G "$IMPORT_DIR"/*.state > /dev/null; then
@@ -55,6 +108,7 @@ sw_import() {
         sw_log_info "IMPORT" "$(ls ${IMPORT_DIR}/*.timer)"
         cat "$IMPORT_DIR"/*.timer >> "$TIMER_DIR/timers.txt" && rm "$IMPORT_DIR"/*.timer
     fi
+    
 }
 
 

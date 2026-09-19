@@ -16,7 +16,10 @@
 readonly MODULE_NAME="Systemd"
 readonly MODULE_DESCRIPTION="Systemd failed units monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=1260
+MODULE_INTERVAL=${MODULE_INTERVAL:-1260}
+MODULE_ORDER=${MODULE_ORDER:-51}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Module variables
@@ -79,7 +82,7 @@ systemd_update_state() {
 
     sw_state_set "module.label" "Systemd"
     sw_state_set "module.icon" "lucide/server"
-    sw_state_set "module.order" "50"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "system_state" "${SYSTEMD_STATE}"
     sw_state_set "system_state.label" "Estado"

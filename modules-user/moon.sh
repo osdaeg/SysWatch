@@ -19,7 +19,10 @@
 readonly MODULE_NAME="Moon"
 readonly MODULE_DESCRIPTION="Moon phases"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=660
+MODULE_INTERVAL=${MODULE_INTERVAL:-660}
+MODULE_ORDER=${MODULE_ORDER:-1000}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -327,7 +330,7 @@ moon_update_state() {
 
     sw_state_set "module.icon" "lucide/moon"
     sw_state_set "module.label" "Luna"
-    sw_state_set "module.order" "1000"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "phase" "$(moon_phase_name "${MOON_PHASE}")"
     sw_state_set "phase.label" "Fase"

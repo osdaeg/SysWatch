@@ -28,7 +28,8 @@ sw_log_rename() {
     if [ -f "$archivo_destino" ]; then
         return 0
     else    
-        if mv "$archivo_origen" "$archivo_destino"; then
+        if cp "$archivo_origen" "$archivo_destino"; then
+            > "$archivo_origen"
             return 0
         else
             return 1

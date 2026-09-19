@@ -19,7 +19,10 @@
 readonly MODULE_NAME="ISS"
 readonly MODULE_DESCRIPTION="Monitorize ISS passing over a place"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=300
+MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_ORDER=${MODULE_ORDER:-800}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -313,7 +316,7 @@ iss_update_state() {
 
     sw_state_set "module.label" "ISS"
     sw_state_set "module.icon" "lucide/satellite"
-    sw_state_set "module.order" "80"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
     # Data

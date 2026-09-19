@@ -9,7 +9,10 @@
 readonly MODULE_NAME="Disk IO"
 readonly MODULE_DESCRIPTION="Disk I/O and top writers"
 readonly MODULE_VERSION="0.2.0"
-readonly MODULE_INTERVAL=300
+MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_ORDER=${MODULE_ORDER:-1000}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Thresholds
@@ -242,7 +245,7 @@ disk_update_state() {
 
     sw_state_set "module.label" "Disk I/O"
     sw_state_set "module.icon" "lucide/hard-drive"
-    sw_state_set "module.order" "1000"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "status.label" "Estado"
     sw_state_set "status.order" "10"

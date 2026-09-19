@@ -16,7 +16,10 @@
 readonly MODULE_NAME="Temperature"
 readonly MODULE_DESCRIPTION="Temperature sensor monitoring (lm-sensors or thermal_zone)"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=180
+MODULE_INTERVAL=${MODULE_INTERVAL:-180}
+MODULE_ORDER=${MODULE_ORDER:-44}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -270,7 +273,7 @@ temp_update_state() {
 
         sw_state_set "module.label" "${TEMP_LABEL[$i]}"
         sw_state_set "module.icon" "lucide/thermometer"
-        sw_state_set "module.order" "45"
+        sw_state_set "module.order" "$MODULE_ORDER"
 
         sw_state_set "value" "${TEMP_VALUE[$i]}"
         sw_state_set "value.label" "Temperatura"

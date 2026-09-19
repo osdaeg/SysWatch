@@ -19,7 +19,10 @@
 readonly MODULE_NAME="Sun"
 readonly MODULE_DESCRIPTION="Sun events"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=660
+MODULE_INTERVAL=${MODULE_INTERVAL:-660}
+MODULE_ORDER=${MODULE_ORDER:-1001}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -250,7 +253,7 @@ sun_update_state() {
 
     sw_state_set "module.icon" "lucide/sun"
     sw_state_set "module.label" "Sol"
-    sw_state_set "module.order" "1000"
+    sw_state_set "module.order" "$MODULE_ORDER"
     
     sw_state_set "constellation" "${SUN_CONSTELLATION}"
     sw_state_set "constellation.label" "Constelación"

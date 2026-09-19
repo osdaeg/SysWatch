@@ -16,7 +16,10 @@
 readonly MODULE_NAME="CPU"
 readonly MODULE_DESCRIPTION="CPU usage monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=30
+MODULE_INTERVAL=${MODULE_INTERVAL:-30}
+MODULE_ORDER=${MODULE_ORDER:-10}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -138,7 +141,7 @@ cpu_update_state() {
 
     sw_state_set "module.label" "CPU"
     sw_state_set "module.icon" "lucide/cpu"
-    sw_state_set "module.order" "10"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
     # Data
@@ -178,6 +181,13 @@ cpu_report() {
 sw_module_run() {
 
     sw_state_use "cpu"
+
+    if [[ -n "$MODULE_REMOTE" ]]; then
+        sw_state_remote "$MODULE_REMOTE"
+    fi
+    
+    #sw_state_remote "$MODULE_REMOTE"
+    
     sw_state_load
 
     cpu_collect
@@ -188,12 +198,19 @@ sw_module_run() {
 
     cpu_update_state
 
+    sw_csv_append \
+        "cpu" \
+        "usage" \
+        "${CPU_USAGE}"
+
     sw_state_save
     
     sw_state_clear
     
     (
     sw_state_use "top"
+    
+    #sw_state_remote "$MODULE_REMOTE"
     
     if [ "$CPU_USAGE" -gt 80 ]; then
     
@@ -233,9 +250,4 @@ sw_module_run() {
 
     cpu_report
     
-    sw_csv_append \
-        "cpu" \
-        "usage" \
-        "${CPU_USAGE}"
-
 }

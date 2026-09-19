@@ -27,7 +27,10 @@
 readonly MODULE_NAME="Rclone"
 readonly MODULE_DESCRIPTION="rclone FUSE mount health monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=240
+MODULE_INTERVAL=${MODULE_INTERVAL:-360}
+MODULE_ORDER=${MODULE_ORDER:-41}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -377,7 +380,7 @@ rclone_update_state() {
 
         sw_state_set "module.label" "rclone: ${mountpoint}"
         sw_state_set "module.icon" "lucide/cloud"
-        sw_state_set "module.order" "41"
+        sw_state_set "module.order" "$MODULE_ORDER"
 
         sw_state_set "detail" "${RCLONE_DETAIL[$i]}"
         sw_state_set "detail.label" "Estado"

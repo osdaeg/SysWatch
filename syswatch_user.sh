@@ -46,7 +46,10 @@ main() {
         "$CACHE_DIR" \
         "${LOCK_DIR}" \
         "${CONFIG_DIR}" \
-        "$HTML_DIR"
+        "$HTML_DIR" \
+        "$REMOTE_DIR"
+        
+    sw_create_remote_dirs    
 
     sw_lock_acquire "syswatch_user"
 

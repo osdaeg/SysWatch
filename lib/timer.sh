@@ -27,6 +27,27 @@ COUNT=""
 # Timer helpers
 # -----------------------------------------------------------------------------
 
+sw_timer_create_raw() {
+
+    local module=$1
+    local dir=$2
+    local total=$3
+    local action=$4
+    
+    echo "${module}=TOTAL:${total}|ACTION:${action}|COUNT:${total}" > "${dir}/${module}.timer"
+
+}
+
+sw_timer_from_module() {
+
+    local resultado
+
+    resultado=$(( (MODULE_INTERVAL / 60) + 2 ))
+    
+    printf '%s' "$resultado"
+
+}
+
 sw_timer_state_file() {
 
     printf '%s/%s.state\n' \

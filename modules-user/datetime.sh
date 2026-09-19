@@ -19,7 +19,10 @@
 readonly MODULE_NAME="Datetime"
 readonly MODULE_DESCRIPTION="Date, uptime, etc"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=120
+MODULE_INTERVAL=${MODULE_INTERVAL:-120}
+MODULE_ORDER=${MODULE_ORDER:-5}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -80,7 +83,7 @@ datetime_update_state() {
 
     sw_state_set "module.label" "Fecha y hora"
     sw_state_set "module.icon" "lucide/clock"
-    sw_state_set "module.order" "5"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
     # Data

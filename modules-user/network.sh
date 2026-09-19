@@ -16,7 +16,10 @@
 readonly MODULE_NAME="Network"
 readonly MODULE_DESCRIPTION="Network state monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=120
+MODULE_INTERVAL=${MODULE_INTERVAL:-120}
+MODULE_ORDER=${MODULE_ORDER:-30}
+MODULE_REMOTE=${MODULE_REMOTE:-"pepito"}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -71,6 +74,8 @@ NETWORK_BITRATE=()
 
 NETWORK_LABEL=()
 
+NETWORK_ACTIVE_INTERFACE=""
+
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
@@ -100,6 +105,26 @@ network_ipv4() {
     ip -4 -o addr show dev "${iface}" \
         | awk '{print $4}' \
         | cut -d/ -f1
+
+}
+
+network_detect_active_interface() {
+
+    NETWORK_ACTIVE_INTERFACE=""
+
+    NETWORK_ACTIVE_INTERFACE="$(
+        ip route get 1.1.1.1 2>/dev/null |
+            awk '
+                {
+                    for (i = 1; i <= NF; i++) {
+                        if ($i == "dev") {
+                            print $(i + 1)
+                            exit
+                        }
+                    }
+                }
+            '
+    )"
 
 }
 
@@ -300,6 +325,8 @@ network_collect() {
 
     network_read_interfaces
 
+    network_detect_active_interface
+
 }
 
 network_analyze() {
@@ -313,25 +340,43 @@ network_analyze() {
         NETWORK_STATUS[$i]="${SW_STATUS_OK}"
 
         #
-        # Link down
+# Link down
+#
+
+if [[ "${NETWORK_STATE[$i]}" != "up" ]]; then
+
+    if [[ -n "${NETWORK_ACTIVE_INTERFACE}" ]] &&
+       [[ "${NETWORK_INTERFACES[$i]}" != "${NETWORK_ACTIVE_INTERFACE}" ]]; then
+
+        NETWORK_STATUS[$i]="${SW_STATUS_INFO}"
+
+    else
+
+        NETWORK_STATUS[$i]="${SW_STATUS_CRITICAL}"
+
+    fi
+
+fi
+
         #
+# Carrier
+#
 
-        if [[ "${NETWORK_STATE[$i]}" != "up" ]]; then
+if [[ -n "${NETWORK_CARRIER[$i]}" ]] &&
+   [[ "${NETWORK_CARRIER[$i]}" == "0" ]]; then
 
-            NETWORK_STATUS[$i]="${SW_STATUS_CRITICAL}"
+    if [[ -n "${NETWORK_ACTIVE_INTERFACE}" ]] &&
+       [[ "${NETWORK_INTERFACES[$i]}" != "${NETWORK_ACTIVE_INTERFACE}" ]]; then
 
-        fi
+        NETWORK_STATUS[$i]="${SW_STATUS_INFO}"
 
-        #
-        # Carrier
-        #
+    else
 
-        if [[ -n "${NETWORK_CARRIER[$i]}" ]] &&
-           [[ "${NETWORK_CARRIER[$i]}" == "0" ]]; then
+        NETWORK_STATUS[$i]="${SW_STATUS_CRITICAL}"
 
-            NETWORK_STATUS[$i]="${SW_STATUS_CRITICAL}"
+    fi
 
-        fi
+fi
 
         #
         # Link speed
@@ -405,6 +450,10 @@ network_update_state() {
     for (( i=0; i<NETWORK_DEVICE_COUNT; i++ )); do
 
         sw_state_use "${NETWORK_INTERFACES[$i]}"
+
+        if [[ -n "$MODULE_REMOTE" ]]; then
+            sw_state_remote "$MODULE_REMOTE"
+        fi
         sw_state_load
 
         network_calculate_rate "$i" "$now"
@@ -419,7 +468,7 @@ network_update_state() {
 
         sw_state_set "module.label" "${NETWORK_LABEL[$i]}"
         sw_state_set "module.icon" "lucide/network"
-        sw_state_set "module.order" "30"
+        sw_state_set "module.order" "$MODULE_ORDER"
 
         #
         # ---------------------------------------------------------------------
@@ -589,6 +638,7 @@ network_report() {
 }
 
 sw_module_run() {
+
 
     network_collect || return 1
 

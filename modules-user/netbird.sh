@@ -22,7 +22,10 @@
 readonly MODULE_NAME="Netbird"
 readonly MODULE_DESCRIPTION="NetBird VPN connectivity monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=420
+MODULE_INTERVAL=${MODULE_INTERVAL:-420}
+MODULE_ORDER=${MODULE_ORDER:-45}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Module variables
@@ -98,7 +101,7 @@ netbird_update_state() {
 
     sw_state_set "module.label" "NetBird"
     sw_state_set "module.icon" "lucide/bird"
-    sw_state_set "module.order" "45"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "daemon" "${NETBIRD_DAEMON_STATUS}"
     sw_state_set "daemon.label" "Daemon"

@@ -78,12 +78,16 @@ sw_run_module() {
 
         fi
 
+        sw_module_global_config_load "${MODULE_NAME}"
+    
         if sw_module_should_run "${MODULE_NAME}" "${MODULE_INTERVAL}"
         then
 
             sw_module_run
 
             sw_module_touch "${MODULE_NAME}"
+
+            sw_module_global_config_save "${MODULE_NAME}" "${MODULE_INTERVAL}" "${MODULE_ORDER}" "${MODULE_REMOTE}"
             
         else
             sw_log_info \

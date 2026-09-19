@@ -3,7 +3,8 @@
 # -----------------------------------------------------------------------------
 # SysWatch - Aircraft module
 #
-# Monitors nearby aircraft using the OpenSky Network REST API.
+# Monitors nearby aircraft using the OpenSky Network REST API and enriches
+# the nearest aircraft using HexDB.
 #
 # Copyright (c) 2026 Daniel Eguren
 # Licensed under the MIT License.
@@ -11,11 +12,15 @@
 
 readonly MODULE_NAME="Aircraft"
 readonly MODULE_DESCRIPTION="Nearby aircraft from OpenSky Network"
-readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=300
+readonly MODULE_VERSION="0.2.0"
+MODULE_INTERVAL=${MODULE_INTERVAL:-180}
+MODULE_ORDER=${MODULE_ORDER:-1200}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 readonly OPENSKY_API_URL="https://opensky-network.org/api/states/all"
 readonly OPENSKY_TOKEN_URL="https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
+readonly HEXDB_API_URL="https://hexdb.io/api/v1/aircraft"
 
 readonly AIRCRAFT_INFO_RADIUS_KM="${AIRCRAFT_INFO_RADIUS_KM:-5}"
 readonly AIRCRAFT_INFO_ALTITUDE_M="${AIRCRAFT_INFO_ALTITUDE_M:-1500}"
@@ -33,6 +38,10 @@ AIRCRAFT_1_ALTITUDE=""
 AIRCRAFT_1_SPEED=""
 AIRCRAFT_1_TRACK=""
 
+AIRCRAFT_1_MANUFACTURER=""
+AIRCRAFT_1_TYPE=""
+AIRCRAFT_1_OPERATOR=""
+
 AIRCRAFT_2_ICAO=""
 AIRCRAFT_2_CALLSIGN=""
 AIRCRAFT_2_COUNTRY=""
@@ -41,11 +50,10 @@ AIRCRAFT_2_ALTITUDE=""
 AIRCRAFT_2_SPEED=""
 AIRCRAFT_2_TRACK=""
 
-# Country display map:
-#
-#   Argentina -> 🇦🇷 Argentina
-#   Chile     -> 🇨🇱 Chile
-#
+AIRCRAFT_2_MANUFACTURER=""
+AIRCRAFT_2_TYPE=""
+AIRCRAFT_2_OPERATOR=""
+
 declare -A AIRCRAFT_COUNTRIES=()
 
 # -----------------------------------------------------------------------------
@@ -54,8 +62,8 @@ declare -A AIRCRAFT_COUNTRIES=()
 
 aircraft_load_countries() {
 
+    local -a fields
     local country
-    local iso
     local flag
 
     AIRCRAFT_COUNTRIES=()
@@ -64,29 +72,46 @@ aircraft_load_countries() {
         return 0
     fi
 
-    while IFS='|' read -r country iso flag; do
+    while IFS='|' read -r -a fields; do
+
+        country="${fields[0]:-}"
 
         [[ -n "${country}" ]] || continue
+
+        # Support both:
+        #
+        #   OpenSky name | ISO | flag
+        #
+        # and:
+        #
+        #   OpenSky name | official name | ISO | flag
+        #
+        if (( ${#fields[@]} >= 4 )); then
+            flag="${fields[3]:-}"
+        else
+            flag="${fields[2]:-}"
+        fi
+
         [[ -n "${flag}" ]] || continue
 
         AIRCRAFT_COUNTRIES["${country}"]="${flag} ${country}"
 
     done < <(sw_cache_read "countries.map")
-
 }
-
-
 
 aircraft_country_display() {
 
     local country="$1"
 
     if [[ -n "${AIRCRAFT_COUNTRIES[$country]:-}" ]]; then
-        printf '%s' "${AIRCRAFT_COUNTRIES[$country]}"
-    else
-        printf '%s' "$country"
-    fi
 
+        printf '%s' "${AIRCRAFT_COUNTRIES[$country]}"
+
+    else
+
+        printf '%s' "${country}"
+
+    fi
 }
 
 # -----------------------------------------------------------------------------
@@ -139,6 +164,8 @@ aircraft_token_get() {
 
     token="$(
         curl -sS --fail \
+            --connect-timeout 10 \
+            --max-time 20 \
             -X POST \
             -H 'Content-Type: application/x-www-form-urlencoded' \
             --data-urlencode 'grant_type=client_credentials' \
@@ -167,6 +194,31 @@ aircraft_token_get() {
     } > "${token_file}"
 
     printf '%s\n' "${token}"
+}
+
+# -----------------------------------------------------------------------------
+# OpenSky request
+# -----------------------------------------------------------------------------
+
+aircraft_opensky_request() {
+
+    local token="$1"
+    local lamin="$2"
+    local lomin="$3"
+    local lamax="$4"
+    local lomax="$5"
+
+    curl -sS --fail \
+        --connect-timeout 10 \
+        --max-time 20 \
+        -H "Authorization: Bearer ${token}" \
+        --get \
+        --data-urlencode "lamin=${lamin}" \
+        --data-urlencode "lomin=${lomin}" \
+        --data-urlencode "lamax=${lamax}" \
+        --data-urlencode "lomax=${lomax}" \
+        --data-urlencode "extended=1" \
+        "${OPENSKY_API_URL}"
 }
 
 # -----------------------------------------------------------------------------
@@ -244,13 +296,101 @@ aircraft_bbox() {
 }
 
 # -----------------------------------------------------------------------------
+# HexDB cache
+# -----------------------------------------------------------------------------
+
+aircraft_hexdb_cache_file() {
+
+    local icao="$1"
+
+    printf '%s\n' "$(sw_cache_file "aircraft-hex-${icao}.json")"
+}
+
+aircraft_hexdb_get() {
+
+    local icao="$1"
+    local cache_file
+    local json
+
+    cache_file="$(aircraft_hexdb_cache_file "${icao}")"
+
+    # -------------------------------------------------------------------------
+    # Cache hit
+    # -------------------------------------------------------------------------
+
+    if sw_cache_exists "aircraft-hex-${icao}.json"; then
+
+        if jq -e . "${cache_file}" >/dev/null 2>&1; then
+            cat "${cache_file}"
+            return 0
+        fi
+
+        rm -f "${cache_file}"
+    fi
+
+    # -------------------------------------------------------------------------
+    # Cache miss
+    # -------------------------------------------------------------------------
+
+    json="$(
+        curl -sS --fail \
+            --connect-timeout 10 \
+            --max-time 20 \
+            "${HEXDB_API_URL}/${icao}"
+    )" || {
+
+        return 1
+    }
+
+    if ! jq -e . >/dev/null 2>&1 <<< "${json}"; then
+        return 1
+    fi
+
+    umask 077
+
+    printf '%s\n' "${json}" > "${cache_file}"
+
+    printf '%s\n' "${json}"
+}
+
+# -----------------------------------------------------------------------------
+# Enrich aircraft from HexDB
+# -----------------------------------------------------------------------------
+
+aircraft_enrich() {
+
+    local prefix="$1"
+    local icao="$2"
+
+    local json
+    local value
+
+    # Reset enrichment fields.
+    printf -v "${prefix}_MANUFACTURER" '%s' ""
+    printf -v "${prefix}_TYPE" '%s' ""
+    printf -v "${prefix}_OPERATOR" '%s' ""
+
+    [[ -n "${icao}" ]] || return 0
+
+    json="$(aircraft_hexdb_get "${icao}")" || return 0
+
+    value="$(jq -r '.Manufacturer // empty' <<< "${json}")"
+    printf -v "${prefix}_MANUFACTURER" '%s' "${value}"
+
+    value="$(jq -r '.Type // empty' <<< "${json}")"
+    printf -v "${prefix}_TYPE" '%s' "${value}"
+
+    value="$(jq -r '.RegisteredOwners // empty' <<< "${json}")"
+    printf -v "${prefix}_OPERATOR" '%s' "${value}"
+}
+
+# -----------------------------------------------------------------------------
 # Collect aircraft
 # -----------------------------------------------------------------------------
 
 aircraft_collect() {
 
     local token
-    local bbox
     local lamin
     local lomin
     local lamax
@@ -262,25 +402,47 @@ aircraft_collect() {
 
     read -r lamin lomin lamax lomax <<< "$(aircraft_bbox)"
 
+    # -------------------------------------------------------------------------
+    # First request
+    # -------------------------------------------------------------------------
+
     json="$(
-        curl -sS --fail \
-            --connect-timeout 10 \
-            --max-time 20 \
-            -H "Authorization: Bearer ${token}" \
-            --get \
-            --data-urlencode "lamin=${lamin}" \
-            --data-urlencode "lomin=${lomin}" \
-            --data-urlencode "lamax=${lamax}" \
-            --data-urlencode "lomax=${lomax}" \
-            "${OPENSKY_API_URL}"
-    )" || {
+        aircraft_opensky_request \
+            "${token}" \
+            "${lamin}" \
+            "${lomin}" \
+            "${lamax}" \
+            "${lomax}"
+    )"
 
-        sw_log_info \
-            "${MODULE_NAME}" \
-            "Error consultando OpenSky"
+    # -------------------------------------------------------------------------
+    # Token may have expired server-side before our local expiry time.
+    #
+    # If OpenSky rejects the token, obtain a fresh one and retry once.
+    # -------------------------------------------------------------------------
 
-        return 1
-    }
+    if [[ $? -ne 0 ]]; then
+
+        rm -f "$(sw_cache_file "opensky.token")"
+
+        token="$(aircraft_token_get)" || return 1
+
+        json="$(
+            aircraft_opensky_request \
+                "${token}" \
+                "${lamin}" \
+                "${lomin}" \
+                "${lamax}" \
+                "${lomax}"
+        )" || {
+
+            sw_log_info \
+                "${MODULE_NAME}" \
+                "Error consultando OpenSky"
+
+            return 1
+        }
+    fi
 
     states_count="$(
         jq -r '.states // [] | length' <<< "${json}"
@@ -294,6 +456,8 @@ aircraft_collect() {
 
         return 1
     fi
+    
+    echo "$json" | jq . > "${CACHE_DIR}/opensky.json"
 
     # -------------------------------------------------------------------------
     # Reset current data
@@ -311,6 +475,10 @@ aircraft_collect() {
     AIRCRAFT_1_SPEED=""
     AIRCRAFT_1_TRACK=""
 
+    AIRCRAFT_1_MANUFACTURER=""
+    AIRCRAFT_1_TYPE=""
+    AIRCRAFT_1_OPERATOR=""
+
     AIRCRAFT_2_ICAO=""
     AIRCRAFT_2_CALLSIGN=""
     AIRCRAFT_2_COUNTRY=""
@@ -318,6 +486,10 @@ aircraft_collect() {
     AIRCRAFT_2_ALTITUDE=""
     AIRCRAFT_2_SPEED=""
     AIRCRAFT_2_TRACK=""
+
+    AIRCRAFT_2_MANUFACTURER=""
+    AIRCRAFT_2_TYPE=""
+    AIRCRAFT_2_OPERATOR=""
 
     # -------------------------------------------------------------------------
     # Extract airborne aircraft.
@@ -357,7 +529,7 @@ aircraft_collect() {
     )"
 
     # No airborne aircraft.
-    [[ -n "${aircraft_list}" ]] || return 0
+    [[ -n "${aircraft_list}" ]] || { MODULE_INTERVAL=180; return 0; }
 
     # -------------------------------------------------------------------------
     # Calculate distances
@@ -392,7 +564,6 @@ aircraft_collect() {
             aircraft_distance_km "${lat}" "${lon}"
         )"
 
-        # Never allow a failed distance calculation to shift columns.
         [[ "${distance}" =~ ^[0-9]+([.][0-9]+)?$ ]] || continue
 
         sorted_list+="${distance}"$'\t'"${icao}"$'\t'"${callsign}"$'\t'"${country}"$'\t'"${altitude}"$'\t'"${speed}"$'\t'"${track}"$'\n'
@@ -405,7 +576,9 @@ aircraft_collect() {
 
     [[ "${AIRCRAFT_COUNT}" =~ ^[0-9]+$ ]] || AIRCRAFT_COUNT=0
 
-    (( AIRCRAFT_COUNT > 0 )) || return 0
+    (( AIRCRAFT_COUNT > 0 )) || { MODULE_INTERVAL=180; return 0; }
+
+    MODULE_INTERVAL=30
 
     # -------------------------------------------------------------------------
     # Sort by distance and keep only the two nearest.
@@ -454,6 +627,19 @@ aircraft_collect() {
     )
 
     # -------------------------------------------------------------------------
+    # Only now query HexDB.
+    #
+    # This means a large OpenSky response produces at most two HexDB requests,
+    # and usually fewer because aircraft information is cached.
+    # -------------------------------------------------------------------------
+
+    aircraft_enrich "AIRCRAFT_1" "${AIRCRAFT_1_ICAO}"
+
+    if (( AIRCRAFT_COUNT >= 2 )); then
+        aircraft_enrich "AIRCRAFT_2" "${AIRCRAFT_2_ICAO}"
+    fi
+
+    # -------------------------------------------------------------------------
     # INFO is determined ONLY by the nearest aircraft.
     #
     # Both conditions must be satisfied:
@@ -478,8 +664,10 @@ aircraft_collect() {
             }
         '
         then
+
             AIRCRAFT_INFO=1
             AIRCRAFT_1_CLOSE=1
+
         fi
     fi
 
@@ -505,50 +693,103 @@ aircraft_analyze() {
 
 aircraft_delete_nearest_state() {
 
+    sw_state_delete_key "nearest.title"
+
     sw_state_delete_key "nearest.icao"
+    sw_state_delete_key "nearest.icao.label"
+    sw_state_delete_key "nearest.icao.order"
+
     sw_state_delete_key "nearest.callsign"
+    sw_state_delete_key "nearest.callsign.label"
+    sw_state_delete_key "nearest.callsign.order"
+
     sw_state_delete_key "nearest.country"
+    sw_state_delete_key "nearest.country.label"
+    sw_state_delete_key "nearest.country.order"
+
     sw_state_delete_key "nearest.distance"
     sw_state_delete_key "nearest.distance.label"
     sw_state_delete_key "nearest.distance.unit"
     sw_state_delete_key "nearest.distance.order"
+
     sw_state_delete_key "nearest.altitude"
     sw_state_delete_key "nearest.altitude.label"
     sw_state_delete_key "nearest.altitude.unit"
     sw_state_delete_key "nearest.altitude.order"
+
     sw_state_delete_key "nearest.speed"
     sw_state_delete_key "nearest.speed.label"
     sw_state_delete_key "nearest.speed.unit"
     sw_state_delete_key "nearest.speed.order"
+
     sw_state_delete_key "nearest.track"
     sw_state_delete_key "nearest.track.label"
     sw_state_delete_key "nearest.track.unit"
     sw_state_delete_key "nearest.track.order"
+
     sw_state_delete_key "nearest.close"
     sw_state_delete_key "nearest.close.label"
+
+    sw_state_delete_key "nearest.manufacturer"
+    sw_state_delete_key "nearest.manufacturer.label"
+    sw_state_delete_key "nearest.manufacturer.order"
+
+    sw_state_delete_key "nearest.type"
+    sw_state_delete_key "nearest.type.label"
+    sw_state_delete_key "nearest.type.order"
+
+    sw_state_delete_key "nearest.operator"
+    sw_state_delete_key "nearest.operator.label"
+    sw_state_delete_key "nearest.operator.order"
 }
 
 aircraft_delete_second_state() {
 
+    sw_state_delete_key "second.title"
+
     sw_state_delete_key "second.icao"
+    sw_state_delete_key "second.icao.label"
+    sw_state_delete_key "second.icao.order"
+
     sw_state_delete_key "second.callsign"
+    sw_state_delete_key "second.callsign.label"
+    sw_state_delete_key "second.callsign.order"
+
     sw_state_delete_key "second.country"
+    sw_state_delete_key "second.country.label"
+    sw_state_delete_key "second.country.order"
+
     sw_state_delete_key "second.distance"
     sw_state_delete_key "second.distance.label"
     sw_state_delete_key "second.distance.unit"
     sw_state_delete_key "second.distance.order"
+
     sw_state_delete_key "second.altitude"
     sw_state_delete_key "second.altitude.label"
     sw_state_delete_key "second.altitude.unit"
     sw_state_delete_key "second.altitude.order"
+
     sw_state_delete_key "second.speed"
     sw_state_delete_key "second.speed.label"
     sw_state_delete_key "second.speed.unit"
     sw_state_delete_key "second.speed.order"
+
     sw_state_delete_key "second.track"
     sw_state_delete_key "second.track.label"
     sw_state_delete_key "second.track.unit"
     sw_state_delete_key "second.track.order"
+
+    sw_state_delete_key "second.manufacturer"
+    sw_state_delete_key "second.manufacturer.label"
+    sw_state_delete_key "second.manufacturer.order"
+
+    sw_state_delete_key "second.type"
+    sw_state_delete_key "second.type.label"
+    sw_state_delete_key "second.type.order"
+
+    sw_state_delete_key "second.operator"
+    sw_state_delete_key "second.operator.label"
+    sw_state_delete_key "second.operator.order"
 }
 
 # -----------------------------------------------------------------------------
@@ -561,14 +802,14 @@ aircraft_update_state() {
 
     sw_state_set "module.label" "Aircraft"
     sw_state_set "module.icon" "lucide/plane"
-    sw_state_set "module.order" "1200"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
     # Count
     # -------------------------------------------------------------------------
 
     sw_state_set "count" "${AIRCRAFT_COUNT}"
-    sw_state_set "count.label" "Aircraft"
+    sw_state_set "count.label" "Total aircrafts"
     sw_state_set "count.widget" "number"
     sw_state_set "count.order" "10"
 
@@ -588,11 +829,24 @@ aircraft_update_state() {
     # Nearest aircraft
     # -------------------------------------------------------------------------
 
+    sw_state_set "nearest.title" "=========="
+    sw_state_set "nearest.title.label" "Nearest"
+    sw_state_set "nearest.title.order" "20"
+
     sw_state_set "nearest.icao" "${AIRCRAFT_1_ICAO}"
+    sw_state_set "nearest.icao.label" "ICAO"
+    sw_state_set "nearest.icao.order" "70"
+
     sw_state_set "nearest.callsign" "${AIRCRAFT_1_CALLSIGN}"
+    sw_state_set "nearest.callsign.label" "Call Sign"
+    sw_state_set "nearest.callsign.order" "80"
+
     sw_state_set \
         "nearest.country" \
         "$(aircraft_country_display "${AIRCRAFT_1_COUNTRY}")"
+
+    sw_state_set "nearest.country.label" "Country"
+    sw_state_set "nearest.country.order" "90"
 
     sw_state_set "nearest.distance" "${AIRCRAFT_1_DISTANCE}"
     sw_state_set "nearest.distance.label" "Distance"
@@ -627,36 +881,141 @@ aircraft_update_state() {
     fi
 
     # -------------------------------------------------------------------------
+    # HexDB information
+    # -------------------------------------------------------------------------
+
+    if [[ -n "${AIRCRAFT_1_MANUFACTURER}" ]]; then
+
+        sw_state_set "nearest.manufacturer" "${AIRCRAFT_1_MANUFACTURER}"
+        sw_state_set "nearest.manufacturer.label" "Manufacturer"
+        sw_state_set "nearest.manufacturer.order" "95"
+
+    else
+
+        sw_state_delete_key "nearest.manufacturer"
+        sw_state_delete_key "nearest.manufacturer.label"
+        sw_state_delete_key "nearest.manufacturer.order"
+
+    fi
+
+    if [[ -n "${AIRCRAFT_1_TYPE}" ]]; then
+
+        sw_state_set "nearest.type" "${AIRCRAFT_1_TYPE}"
+        sw_state_set "nearest.type.label" "Type"
+        sw_state_set "nearest.type.order" "96"
+
+    else
+
+        sw_state_delete_key "nearest.type"
+        sw_state_delete_key "nearest.type.label"
+        sw_state_delete_key "nearest.type.order"
+
+    fi
+
+    if [[ -n "${AIRCRAFT_1_OPERATOR}" ]]; then
+
+        sw_state_set "nearest.operator" "${AIRCRAFT_1_OPERATOR}"
+        sw_state_set "nearest.operator.label" "Operator"
+        sw_state_set "nearest.operator.order" "97"
+
+    else
+
+        sw_state_delete_key "nearest.operator"
+        sw_state_delete_key "nearest.operator.label"
+        sw_state_delete_key "nearest.operator.order"
+
+    fi
+
+    # -------------------------------------------------------------------------
     # Second nearest aircraft
     # -------------------------------------------------------------------------
 
     if (( AIRCRAFT_COUNT >= 2 )); then
 
+        sw_state_set "second.title" "=========="
+        sw_state_set "second.title.label" "Second nearest"
+        sw_state_set "second.title.order" "99"
+
         sw_state_set "second.icao" "${AIRCRAFT_2_ICAO}"
+        sw_state_set "second.icao.label" "ICAO"
+        sw_state_set "second.icao.order" "140"
+
         sw_state_set "second.callsign" "${AIRCRAFT_2_CALLSIGN}"
+        sw_state_set "second.callsign.label" "Call Sign"
+        sw_state_set "second.callsign.order" "150"
+
         sw_state_set \
             "second.country" \
             "$(aircraft_country_display "${AIRCRAFT_2_COUNTRY}")"
 
+        sw_state_set "second.country.label" "Country"
+        sw_state_set "second.country.order" "160"
+
         sw_state_set "second.distance" "${AIRCRAFT_2_DISTANCE}"
         sw_state_set "second.distance.label" "Distance"
         sw_state_set "second.distance.unit" "km"
-        sw_state_set "second.distance.order" "70"
+        sw_state_set "second.distance.order" "100"
 
         sw_state_set "second.altitude" "${AIRCRAFT_2_ALTITUDE}"
         sw_state_set "second.altitude.label" "Altitude"
         sw_state_set "second.altitude.unit" "m"
-        sw_state_set "second.altitude.order" "80"
+        sw_state_set "second.altitude.order" "110"
 
         sw_state_set "second.speed" "${AIRCRAFT_2_SPEED}"
         sw_state_set "second.speed.label" "Speed"
         sw_state_set "second.speed.unit" "m/s"
-        sw_state_set "second.speed.order" "90"
+        sw_state_set "second.speed.order" "120"
 
         sw_state_set "second.track" "${AIRCRAFT_2_TRACK}"
         sw_state_set "second.track.label" "Track"
         sw_state_set "second.track.unit" "°"
-        sw_state_set "second.track.order" "100"
+        sw_state_set "second.track.order" "130"
+
+        # ---------------------------------------------------------------------
+        # HexDB information
+        # ---------------------------------------------------------------------
+
+        if [[ -n "${AIRCRAFT_2_MANUFACTURER}" ]]; then
+
+            sw_state_set "second.manufacturer" "${AIRCRAFT_2_MANUFACTURER}"
+            sw_state_set "second.manufacturer.label" "Manufacturer"
+            sw_state_set "second.manufacturer.order" "165"
+
+        else
+
+            sw_state_delete_key "second.manufacturer"
+            sw_state_delete_key "second.manufacturer.label"
+            sw_state_delete_key "second.manufacturer.order"
+
+        fi
+
+        if [[ -n "${AIRCRAFT_2_TYPE}" ]]; then
+
+            sw_state_set "second.type" "${AIRCRAFT_2_TYPE}"
+            sw_state_set "second.type.label" "Type"
+            sw_state_set "second.type.order" "166"
+
+        else
+
+            sw_state_delete_key "second.type"
+            sw_state_delete_key "second.type.label"
+            sw_state_delete_key "second.type.order"
+
+        fi
+
+        if [[ -n "${AIRCRAFT_2_OPERATOR}" ]]; then
+
+            sw_state_set "second.operator" "${AIRCRAFT_2_OPERATOR}"
+            sw_state_set "second.operator.label" "Operator"
+            sw_state_set "second.operator.order" "167"
+
+        else
+
+            sw_state_delete_key "second.operator"
+            sw_state_delete_key "second.operator.label"
+            sw_state_delete_key "second.operator.order"
+
+        fi
 
     else
 
@@ -682,6 +1041,7 @@ aircraft_report() {
         sw_log_info \
             "${MODULE_NAME}" \
             "Aeronaves en vuelo: ${AIRCRAFT_COUNT}; próximas: ${AIRCRAFT_1_CALLSIGN:-ninguna}, ${AIRCRAFT_2_CALLSIGN:-ninguna}"
+
     fi
 }
 
@@ -729,15 +1089,18 @@ sw_module_run() {
     aircraft_analyze
 
     # -------------------------------------------------------------------------
-    # INFO timer:
+    # INFO timer
     #
     # Create it only when entering INFO.
+    # Repeated calls reset the timer by design, so we deliberately do not
+    # recreate it while the module remains in INFO.
     # -------------------------------------------------------------------------
 
     if [[ "${AIRCRAFT_STATUS}" == "${SW_STATUS_INFO}" &&
           "${previous_status}" != "${SW_STATUS_INFO}" ]]; then
 
         sw_timer_create "aircraft" "5" "statusok"
+
     fi
 
     # -------------------------------------------------------------------------

@@ -16,7 +16,10 @@
 readonly MODULE_NAME="Disk"
 readonly MODULE_DESCRIPTION="Disk usage monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=300
+MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_ORDER=${MODULE_ORDER:-40}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -150,7 +153,7 @@ disk_discover() {
         DISK_AVAIL+=("$(( avail * 1024 ))")
         DISK_USE_PCT+=("${pct%\%}")
 
-    done < <(df -P -k -T -x tmpfs -x devtmpfs -x overlay -x squashfs 2>/dev/null)
+    done < <(LC_ALL=C df -P -k -T -x tmpfs -x devtmpfs -x overlay -x squashfs 2>/dev/null)
 
 }
 
@@ -212,7 +215,7 @@ disk_update_state() {
 
         sw_state_set "module.label" "${DISK_MOUNTPOINT[$i]}"
         sw_state_set "module.icon" "lucide/hard-drive"
-        sw_state_set "module.order" "40"
+        sw_state_set "module.order" "$MODULE_ORDER"
 
         # Hidden marker: lets other modules (e.g. du.sh) find disk.sh's
         # own state files unambiguously and read the real mountpoint

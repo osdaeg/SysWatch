@@ -26,7 +26,10 @@
 readonly MODULE_NAME="Weather"
 readonly MODULE_DESCRIPTION="Weather monitoring (OpenWeatherMap)"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=540
+MODULE_INTERVAL=${MODULE_INTERVAL:-540}
+MODULE_ORDER=${MODULE_ORDER:-9}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -346,34 +349,34 @@ weather_update_state() {
     local location="${WEATHER_CITY}"
     [[ -n "${WEATHER_COUNTRY}" ]] && location="${WEATHER_CITY}, ${WEATHER_COUNTRY}"
     sw_state_set "location" "${location}"
-    sw_state_set "location.label" "Ubicación"
+    sw_state_set "location.label" "🗺️ Ubicación"
 
-    sw_state_set "module.order" "9"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "is_day" "${WEATHER_IS_DAY}"
     sw_state_set "is_day.hidden" "true"
 
     sw_state_set "temp" "${WEATHER_TEMP}"
-    sw_state_set "temp.label" "Temperatura"
+    sw_state_set "temp.label" "🌡️ Temperatura"
     sw_state_set "temp.unit" "°C"
 
     sw_state_set "feels_like" "${WEATHER_FEELS_LIKE}"
-    sw_state_set "feels_like.label" "Sensación térmica"
+    sw_state_set "feels_like.label" "🌡️ Sensación térmica"
     sw_state_set "feels_like.unit" "°C"
 
     sw_state_set "humidity" "${WEATHER_HUMIDITY}"
-    sw_state_set "humidity.label" "Humedad"
+    sw_state_set "humidity.label" "💧 Humedad"
     sw_state_set "humidity.unit" "%"
 
     sw_state_set "wind" "${WEATHER_WIND_KMH}"
-    sw_state_set "wind.label" "Viento"
+    sw_state_set "wind.label" "💨 Viento"
     sw_state_set "wind.unit" "km/h"
 
     sw_state_set "condition" "${condicion}"
     sw_state_set "condition.label" "Condición"
 
     sw_state_set "rain" "${WEATHER_RAIN_MMH}"
-    sw_state_set "rain.label" "Lluvia"
+    sw_state_set "rain.label" "🌧️ Lluvia"
     sw_state_set "rain.unit" "mm/h"
     if [[ "${WEATHER_RAIN_MMH}" == "0" ]]; then
         sw_state_set "rain.hidden" "true"
@@ -399,6 +402,10 @@ sw_module_run() {
 
     sw_state_use "weather"
     sw_state_load
+
+    if [[ -n "$MODULE_REMOTE" ]]; then
+        sw_state_remote "$MODULE_REMOTE"
+    fi
 
     weather_collect || return 1
 

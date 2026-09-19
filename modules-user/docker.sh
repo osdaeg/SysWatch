@@ -24,7 +24,10 @@
 readonly MODULE_NAME="Docker"
 readonly MODULE_DESCRIPTION="Docker container health monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=180
+MODULE_INTERVAL=${MODULE_INTERVAL:-240}
+MODULE_ORDER=${MODULE_ORDER:-60}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -232,7 +235,7 @@ docker_update_state() {
 
         sw_state_set "module.label" "${DOCKER_NAMES[$i]}"
         sw_state_set "module.icon" "lucide/docker"
-        sw_state_set "module.order" "60"
+        sw_state_set "module.order" "$MODULE_ORDER"
 
         if [[ "${DOCKER_HEALTH[$i]}" == "none" ]]; then
 

@@ -16,7 +16,10 @@
 readonly MODULE_NAME="Memory"
 readonly MODULE_DESCRIPTION="Memory usage monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=240
+MODULE_INTERVAL=${MODULE_INTERVAL:-240}
+MODULE_ORDER=${MODULE_ORDER:-20}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -113,7 +116,7 @@ memory_update_state() {
     
     sw_state_set "module.label" "Memoria"
     sw_state_set "module.icon" "lucide/memory"
-    sw_state_set "module.order" "20"
+    sw_state_set "module.order" "$MODULE_ORDER"
     
     sw_state_set "usage.widget" "gauge"
     sw_state_set "usage.unit" "%"

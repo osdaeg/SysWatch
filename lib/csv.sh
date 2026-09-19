@@ -194,3 +194,26 @@ sw_csv_last() {
     tail -n1 "${file}"
 
 }
+
+sw_csv_export_remote() {
+    local module="$1"
+    local remote_dir="$2"
+    local remote_module="$3"
+
+    local source_dir="${CSV_DIR}/${module}"
+    local csv
+    local metric
+
+    [[ -d "${source_dir}" ]] || return 0
+
+    for csv in "${source_dir}"/*.csv; do
+        [[ -f "${csv}" ]] || continue
+
+        metric="${csv##*/}"
+        metric="${metric%.csv}"
+
+        cp "${csv}" \
+            "${remote_dir}/${remote_module}.${metric}.csv"
+
+    done
+}
