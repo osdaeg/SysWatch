@@ -28,11 +28,43 @@ readonly CONFIG_DIR="${PROJECT_DIR}/config"
 : "${TIMER_DIR:=${PROJECT_DIR}/timer}"
 : "${IMPORT_DIR:=${PROJECT_DIR}/import}"
 : "${REMOTE_DIR:=${PROJECT_DIR}/remote}"
+: "${HELPERS_DIR:=${PROJECT_DIR}/helpers}"
 
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
+
+function sw_zodiac_emoji() {
+
+declare -A zodiaco
+
+local signo=$1
+
+zodiaco=(
+    ["Aries"]="♈"
+    ["Taurus"]="♉"
+    ["Gemini"]="♊"
+    ["Cancer"]="♋"
+    ["Leo"]="♌"
+    ["Virgo"]="♍"
+    ["Libra"]="♎"
+    ["Scorpio"]="♏"
+    ["Ophiuchus"]="⛎"
+    ["Sagittarius"]="♐"
+    ["Capricorn"]="♑"
+    ["Aquarius"]="♒"
+    ["Pisces"]="♓"
+    )
+
+    if [[ -n "${zodiaco[$signo]}" ]]; then
+        echo "${zodiaco[$signo]}"
+        return 0
+    else
+        return 1 # Error
+    fi
+    
+}
 
 sw_check_remote() {
 

@@ -66,48 +66,32 @@ git_github() {
     fi
 
     response=$(
-    curl -fsS \
-        --max-time 10 \
-        -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-        -H "Accept: application/vnd.github+json" \
-        -H "X-GitHub-Api-Version: 2022-11-28" \
-        "https://api.${GITHUB_HOST}/user/repos?per_page=100&page=1"
-    ) || return 1
-
-    GIT_GITHUB_REPOS=$(
-    printf '%s\n' "$response" |
-        jq 'length'
-    )
-
-}
-
-
-git_codeberg() {
-
-    local response
-
-    if [[ -z "$CODEBERG_HOST" ]]; then
-        return 0
-    fi
-
-    if [[ -z "$CODEBERG_TOKEN" ]]; then
-        return 1
-    fi
-
-    response=$(
         curl -fsS \
             --max-time 10 \
-            -H "Authorization: token ${CODEBERG_TOKEN}" \
-            "https://${CODEBERG_HOST}/api/v1/user/repos?limit=50&page=1"
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.${GITHUB_HOST}/user/repos?per_page=100&page=1"
     ) || return 1
 
-    GIT_CODEBERG_REPOS=$(
+    echo "$response" | jq . > "/home/daniel/scripts/syswatch/cache/github.json"
+
+    GIT_GITHUB_REPOS=$(
+        printf '%s\n' "$response" |
+            jq 'length'
+    ) || return 1
+
+    GIT_GITHUB_ISSUES=$(
     printf '%s\n' "$response" |
-        jq 'length'
-    )
+        jq '[.[].open_issues_count // 0] | add'
+    ) || return 1
+
+    GIT_GITHUB_FORKS=$(
+    printf '%s\n' "$response" |
+        jq '[.[].forks_count // 0] | add'
+    ) || return 1
 
 }
-
 
 git_gitea() {
 
@@ -135,6 +119,12 @@ git_gitea() {
 
 }
 
+git_codeberg() {
+
+echo "no"
+
+}
+
 
 git_collect() {
 
@@ -143,6 +133,11 @@ git_collect() {
     GIT_GITHUB_REPOS=0
     GIT_CODEBERG_REPOS=0
     GIT_GITEA_REPOS=0
+
+    GIT_GITHUB_ISSUES=0
+    GIT_GITHUB_FORKS=0
+    GIT_GITHUB_PREVIOUS_ISSUES=0
+    GIT_GITHUB_PREVIOUS_FORKS=0
 
     if [[ -n "$GITHUB_HOST" ]]; then
         git_github || failed=1
@@ -160,10 +155,39 @@ git_collect() {
 
 }
 
+git_check_increase() {
+
+    local metric="$1"
+    local current="$2"
+    local file
+    local previous
+
+    file="${PROJECT_DIR}/csv/git/${metric}.csv"
+
+    [[ ! -f "$file" ]] && return 0
+
+    previous=$(
+        tail -n 1 "$file" |
+            cut -d',' -f2
+    )
+
+    [[ -z "$previous" ]] && return 0
+
+    TEMP_VALUE=$previous
+
+    if (( current > previous )); then
+        return 1
+    fi
+
+    return 0
+}
+
 
 git_analyze() {
 
     GIT_STATUS="${SW_STATUS_OK}"
+
+    TEMP_VALUE=0
 
     if [[ -n "$GITHUB_HOST" && -z "$GITHUB_TOKEN" ]]; then
         GIT_STATUS="${SW_STATUS_UNKNOWN}"
@@ -180,8 +204,36 @@ git_analyze() {
         return
     fi
 
-}
 
+    # -------------------------------------------------------------------------
+    # Activity increase
+    # -------------------------------------------------------------------------
+
+    if [[ -n "$GITHUB_HOST" ]]; then
+
+        if ! git_check_increase \
+            "github_issues" \
+            "$GIT_GITHUB_ISSUES"; then
+
+            GIT_STATUS="${SW_STATUS_INFO}"
+
+            GIT_GITHUB_PREVIOUS_ISSUES=$TEMP_VALUE
+
+        fi
+
+        if ! git_check_increase \
+            "github_forks" \
+            "$GIT_GITHUB_FORKS"; then
+
+            GIT_STATUS="${SW_STATUS_INFO}"
+
+            GIT_GITHUB_PREVIOUS_FORKS=$TEMP_VALUE
+
+        fi
+
+    fi
+
+}
 
 git_update_state() {
 
@@ -220,6 +272,46 @@ git_update_state() {
         sw_state_set \
             "github.order" \
             "10"
+
+        sw_state_set \
+            "github_issues" \
+            "${GIT_GITHUB_ISSUES}"
+
+        sw_state_set \
+            "github_issues.label" \
+            "↳ Issues"
+
+        sw_state_set \
+            "github_issues.widget" \
+            "value"
+
+        sw_state_set \
+            "github_issues.unit" \
+            "open ($GIT_GITHUB_PREVIOUS_ISSUES)"
+
+        sw_state_set \
+            "github_issues.order" \
+            "11"
+
+        sw_state_set \
+            "github_forks" \
+            "${GIT_GITHUB_FORKS}"
+
+        sw_state_set \
+            "github_forks.label" \
+            "↳ Forks"
+
+        sw_state_set \
+            "github_forks.widget" \
+            "value"
+
+        sw_state_set \
+            "github_forks.unit" \
+            "created ($GIT_GITHUB_PREVIOUS_FORKS)"
+
+        sw_state_set \
+            "github_forks.order" \
+            "12"    
 
     fi
 
@@ -321,6 +413,9 @@ sw_module_run() {
     git_update_state
 
     sw_state_save
+
+    sw_csv_append "git" "github_issues" "$GIT_GITHUB_ISSUES"
+    sw_csv_append "git" "github_forks" "$GIT_GITHUB_FORKS"
 
     git_report
 

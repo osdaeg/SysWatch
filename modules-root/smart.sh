@@ -16,7 +16,10 @@
 readonly MODULE_NAME="SMART"
 readonly MODULE_DESCRIPTION="SMART disk health monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=86400
+MODULE_INTERVAL=${MODULE_INTERVAL:-86400}
+MODULE_ORDER=${MODULE_ORDER:-41}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -414,6 +417,11 @@ smart_update_state() {
     for (( i=0; i<SMART_DEVICE_COUNT; i++ )); do
     
         sw_state_use "${SMART_SERIAL[$i]}"
+
+        if [[ -n "$MODULE_REMOTE" ]]; then
+                sw_state_remote "$MODULE_REMOTE"
+        fi
+        
         sw_state_load
         
         sw_state_set "module_version" "${MODULE_VERSION}"
@@ -422,7 +430,7 @@ smart_update_state() {
         sw_state_set "module.icon" "lucide/hard-drive"
         
         #orden = $((i + 40))
-        sw_state_set "module.order" "41"
+        sw_state_set "module.order" "$MODULE_ORDER"
 
         #sw_state_set "device_count" "${SMART_DEVICE_COUNT}"
 

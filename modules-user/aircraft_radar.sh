@@ -28,6 +28,8 @@ MODULE_REMOTE=${MODULE_REMOTE:-""}
 AIRCRAFT_RADAR_STATUS="${SW_STATUS_UNKNOWN}"
 AIRCRAFT_BASE_MAP="aircraft_map_base_${WEATHER_LAT}_${WEATHER_LON}.png"
 
+MODULE_INTERVAL_IF_AIRCRAFTS=30
+
 
 aircraft_radar_collect() {
 
@@ -59,7 +61,7 @@ aircraft_radar_collect() {
             cp "${basemap_file}" "${generated_map_file}"
         else    
             sw_cache_remove "aircraft_map_base.png"
-            python3 "${SCRIPT_DIR}/aircraft_radar.py" || return 1
+            python3 "${HELPERS_DIR}/aircraft_radar.py" || return 1
         fi    
     fi
 
@@ -67,14 +69,14 @@ aircraft_radar_collect() {
         "${opensky_file}" >/dev/null 2>&1; then
 
         # Aircraft available: render the radar.
-        python3 "${SCRIPT_DIR}/aircraft_radar.py" || return 1
+        python3 "${HELPERS_DIR}/aircraft_radar.py" || return 1
 
         # Python generated the current base map.
         cp "${generated_map_file}" "${basemap_file}" || return 1
 
         AIRCRAFT_RADAR_STATUS="${SW_STATUS_INFO}"
 
-        MODULE_INTERVAL=30
+        MODULE_INTERVAL=$MODULE_INTERVAL_IF_AIRCRAFTS
 
     elif sw_cache_exists "${AIRCRAFT_BASE_MAP}"; then
 

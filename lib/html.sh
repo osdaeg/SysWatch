@@ -151,10 +151,35 @@ sw_html_widget_text() {
     local label
     local unit
 
+    local align
+    local color
+
     label="$(sw_state_get "${key}.label")"
     unit="$(sw_state_get "${key}.unit")"
 
+    align="$(sw_state_get "${key}.align")"
+    color="$(sw_state_get "${key}.color")"
+
+    [[ -n "${align}" ]] || align="right"
+    [[ -n "${color}" ]] || color="white"
+
     [[ -n "${label}" ]] || label="${key}"
+
+    case "${align}" in
+        left|center|right)
+            ;;
+        *)
+            align="right"
+            ;;
+    esac
+
+    case "${color}" in
+        white|black|yellow|red|green|orange|pink)
+            ;;
+        *)
+            color="white"
+            ;;
+    esac
 
     value="$(sw_html_format_value "${key}" "${value}")"
 
@@ -164,7 +189,7 @@ cat <<EOF
 
 <div class="field-label">${label}</div>
 
-<div class="field-value">${value}${unit:+ ${unit}}</div>
+<div class="field-value" style="text-align:${align}; color:${color};">${value}${unit:+ ${unit}}</div>
 
 </div>
 
@@ -622,7 +647,7 @@ sw_html_render_fields() {
                 continue
                 ;;
 
-            module.*|*.label|*.display|*.widget|*.unit|*.warning|*.critical|*.order|*.hidden|*.scale|*.min|*.max|*.history|*.render)
+            module.*|*.label|*.display|*.widget|*.unit|*.warning|*.critical|*.order|*.hidden|*.scale|*.min|*.max|*.history|*.render|*.align|*.color)
 
                 continue
                 ;;

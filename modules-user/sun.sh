@@ -255,7 +255,7 @@ sun_update_state() {
     sw_state_set "module.label" "Sol"
     sw_state_set "module.order" "$MODULE_ORDER"
     
-    sw_state_set "constellation" "${SUN_CONSTELLATION}"
+    sw_state_set "constellation" "$(sw_zodiac_emoji $SUN_CONSTELLATION) ${SUN_CONSTELLATION}"
     sw_state_set "constellation.label" "Constelación"
     sw_state_set "constellation.order" "20"
 

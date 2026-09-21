@@ -25,6 +25,7 @@ readonly HEXDB_API_URL="https://hexdb.io/api/v1/aircraft"
 readonly AIRCRAFT_INFO_RADIUS_KM="${AIRCRAFT_INFO_RADIUS_KM:-5}"
 readonly AIRCRAFT_INFO_ALTITUDE_M="${AIRCRAFT_INFO_ALTITUDE_M:-1500}"
 
+MODULE_INTERVAL_IF_AIRCRAFTS=30
 AIRCRAFT_STATUS="${SW_STATUS_UNKNOWN}"
 AIRCRAFT_COUNT=0
 AIRCRAFT_INFO=0
@@ -578,7 +579,7 @@ aircraft_collect() {
 
     (( AIRCRAFT_COUNT > 0 )) || { MODULE_INTERVAL=180; return 0; }
 
-    MODULE_INTERVAL=30
+    MODULE_INTERVAL=$MODULE_INTERVAL_IF_AIRCRAFTS
 
     # -------------------------------------------------------------------------
     # Sort by distance and keep only the two nearest.
@@ -872,6 +873,7 @@ aircraft_update_state() {
 
         sw_state_set "nearest.close" "1"
         sw_state_set "nearest.close.label" "Cercano"
+        sw_state_set "nearest.close.color" "blue"
 
     else
 

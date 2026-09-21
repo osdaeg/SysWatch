@@ -290,17 +290,25 @@ iss_analyze() {
 
     ISS_STATUS="${SW_STATUS_OK}"
 
+    MODULE_INTERVAL=300
+
     if [[ "${ISS_VISIBLE}" == "true" ]]; then
 
         ISS_STATUS="${SW_STATUS_CRITICAL}"
+
+        MODULE_INTERVAL=30
 
     elif (( ISS_MINUTES_REMAINING <= ISS_CRITICAL_MINUTES )); then
 
         ISS_STATUS="${SW_STATUS_CRITICAL}"
 
+        MODULE_INTERVAL=60
+
     elif (( ISS_MINUTES_REMAINING <= ISS_WARNING_MINUTES )); then
 
         ISS_STATUS="${SW_STATUS_WARNING}"
+
+        MODULE_INTERVAL=180
 
     fi
 

@@ -27,8 +27,8 @@
 readonly MODULE_NAME="SmnAlerts"
 readonly MODULE_DESCRIPTION="SMN official weather alerts (unofficial API)"
 readonly MODULE_VERSION="0.1.0"
-MODULE_INTERVAL=${MODULE_INTERVAL:-1740}
-MODULE_ORDER=${MODULE_ORDER:-13000}
+MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_ORDER=${MODULE_ORDER:-1200}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
 # -----------------------------------------------------------------------------
@@ -46,9 +46,42 @@ SMN_ALERTS_JSON=""
 SMN_ALERT_HEADLINES=()
 SMN_ALERTS_STATUS="${SW_STATUS_OK}"
 
+declare -A SMN_TRANSLATE=(
+
+    ["Moderate"]="Moderado"
+    ["Minor"]="Leve"
+    ["Severe"]="Severo"
+    ["Extreme"]="Extremo"
+
+    ["Sun"]="Dom"
+    ["Mon"]="Lun"
+    ["Tue"]="Mar"
+    ["Wed"]="Mié"
+    ["Thu"]="Jue"
+    ["Fri"]="Vie"
+    ["Sat"]="Sáb"
+
+)
+
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
+
+sw_translate() {
+
+    local text="$1"
+    local english
+
+    for english in "${!SMN_TRANSLATE[@]}"
+    do
+
+        text="${text//${english}/${SMN_TRANSLATE[$english]}}"
+
+    done
+
+    printf '%s\n' "${text}"
+
+}
 
 smn_alerts_collect() {
 
@@ -195,6 +228,7 @@ smn_alerts_update_state() {
     sw_state_set "module.icon" "lucide/shield-alert"
     sw_state_set "module.order" "$MODULE_ORDER"
 
+
     local order=10
     local i=1
 
@@ -202,6 +236,8 @@ smn_alerts_update_state() {
 
         sw_state_set "detail" "Sin alertas activas"
         sw_state_set "detail.label" "Estado"
+        
+        MODULE_INTERVAL=21600
 
     else
 
@@ -223,16 +259,32 @@ smn_alerts_update_state() {
             expires_local="$(date -d "${expires_raw}" '+%Y-%m-%d %H:%M' 2>/dev/null)"
             [[ -z "${expires_local}" ]] && expires_local="${expires_raw}"
 
-            summary="${headline} (${severity}) -- hasta ${expires_local}"
+            summary="${headline} (${severity}) <br> hasta ${expires_local}"
+
+            summary="$(sw_translate "${summary}")"
 
             sw_state_set "alert${i}" "${summary}"
             sw_state_set "alert${i}.label" "${status}"
             sw_state_set "alert${i}.order" "${order}"
 
+            case "$status" in
+                CRITICAL)
+                    sw_state_set "alert${i}.color" "red"
+                    ;;
+                WARNING)
+                    sw_state_set "alert${i}.color" "yellow"
+                    ;;
+                *)
+                    sw_state_set "alert${i}.color" "white"
+                    ;;
+            esac
+
             (( order += 10 ))
             i=$(( i + 1 ))
 
         done
+        
+        MODULE_INTERVAL=1740
 
     fi
 
@@ -272,7 +324,7 @@ sw_module_run() {
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
     fi
-    
+
     sw_state_load
 
     smn_alerts_collect || return 1

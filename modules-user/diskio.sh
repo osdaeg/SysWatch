@@ -239,7 +239,7 @@ disk_update_state() {
 
     local order=20
     local index=1
-    local process_order=100
+    local process_order=1000
 
     sw_state_set module_version "${MODULE_VERSION}"
 

@@ -139,6 +139,7 @@ smn_forecast_update_state() {
     local order=10
     local summary
     local count=0
+    local color=true
 
     for (( i=0; i<SMN_FORECAST_DAYS; i++ )); do
 
@@ -159,6 +160,14 @@ smn_forecast_update_state() {
         sw_state_set "day${i}" "${summary}"
         sw_state_set "day${i}.label" "Día $(( i + 1 ))"
         sw_state_set "day${i}.order" "${order}"
+
+        if [ "${color}" == "true" ]; then
+            sw_state_set "day${i}.color" "pink"
+            color=false
+        else
+            sw_state_set "day${i}.color" "white"
+            color=true
+        fi
 
         (( order += 10 ))
         count=$(( count + 1 ))

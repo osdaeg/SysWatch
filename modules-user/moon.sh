@@ -350,7 +350,7 @@ moon_update_state() {
         sw_state_set "size.hidden" "true"
     fi    
     
-    sw_state_set "constellation" "${MOON_CONSTELLATION}"
+    sw_state_set "constellation" "$(sw_zodiac_emoji ${MOON_CONSTELLATION}) $MOON_CONSTELLATION"
     sw_state_set "constellation.label" "Constelación"
     sw_state_set "constellation.order" "20"
 

@@ -34,7 +34,10 @@
 readonly MODULE_NAME="Du"
 readonly MODULE_DESCRIPTION="Heavy-directory finder for mounts disk.sh flagged as full"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=480
+MODULE_INTERVAL=${MODULE_INTERVAL:-480}
+MODULE_ORDER=${MODULE_ORDER:-42}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -96,6 +99,10 @@ du_process_disk_state() {
 
     sw_state_use "${key}"
 
+    if [[ -n "$MODULE_REMOTE" ]]; then
+        sw_state_remote "$MODULE_REMOTE"
+    fi
+
     if [[ "${disk_status}" != "WARNING" && "${disk_status}" != "CRITICAL" ]]; then
 
         # Nothing wrong (or disk.sh hasn't run yet this cycle) --
@@ -127,7 +134,7 @@ du_process_disk_state() {
 
     sw_state_set "module.label" "du: ${mountpoint}"
     sw_state_set "module.icon" "lucide/folder-search"
-    sw_state_set "module.order" "42"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "heaviest_dir" "${heaviest_dir}"
     sw_state_set "heaviest_dir.label" "Carpeta más pesada"

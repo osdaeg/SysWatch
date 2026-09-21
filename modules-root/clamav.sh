@@ -21,7 +21,10 @@
 readonly MODULE_NAME="Clamav"
 readonly MODULE_DESCRIPTION="ClamAV log monitoring (does not run scans itself)"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=3540
+MODULE_INTERVAL=${MODULE_INTERVAL:-3540}
+MODULE_ORDER=${MODULE_ORDER:-56}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -145,7 +148,8 @@ clamav_update_state() {
             sw_state_set "module.icon" "lucide/shield"
             ;;
     esac
-    sw_state_set "module.order" "56"
+
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "infected" "${CLAMAV_INFECTED}"
     sw_state_set "infected.label" "Infecciones"
@@ -172,6 +176,11 @@ clamav_report() {
 sw_module_run() {
 
     sw_state_use "clamav-host"
+
+    if [[ -n "$MODULE_REMOTE" ]]; then
+        sw_state_remote "$MODULE_REMOTE"
+    fi
+    
     sw_state_load
 
     clamav_collect || return 1

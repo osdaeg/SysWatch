@@ -31,7 +31,10 @@
 readonly MODULE_NAME="Chkrootkit"
 readonly MODULE_DESCRIPTION="chkrootkit log monitoring (does not run scans itself)"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=3660
+MODULE_INTERVAL=${MODULE_INTERVAL:-3660}
+MODULE_ORDER=${MODULE_ORDER:-55}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -230,7 +233,7 @@ chkrootkit_update_state() {
             ;;
     esac
 
-    sw_state_set "module.order" "55"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "infected" "${CHKROOTKIT_INFECTED}"
     sw_state_set "infected.label" "Infecciones"
@@ -295,6 +298,11 @@ chkrootkit_report() {
 sw_module_run() {
 
     sw_state_use "chkrootkit"
+
+    if [[ -n "$MODULE_REMOTE" ]]; then
+        sw_state_remote "$MODULE_REMOTE"
+    fi
+    
     sw_state_load
 
     chkrootkit_collect || return 1
