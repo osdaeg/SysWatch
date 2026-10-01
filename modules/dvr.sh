@@ -26,7 +26,10 @@
 readonly MODULE_NAME="Dvr"
 readonly MODULE_DESCRIPTION="Hikvision DVR camera snapshot monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=120
+MODULE_INTERVAL=${MODULE_INTERVAL:-120}
+MODULE_ORDER=${MODULE_ORDER:-70}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
+
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -44,13 +47,6 @@ readonly DVR_API_PATH="${DVR_API_PATH:-ISAPI}"
 readonly DVR_CAMERAS="${DVR_CAMERAS:-}"
 
 readonly DVR_TIMEOUT_SECONDS="${DVR_TIMEOUT_SECONDS:-15}"
-
-# A single 401/timeout shouldn't paint the card red -- old DVR firmware
-# with Digest auth often has a limited concurrent-session pool (a
-# browser tab open to the DVR competes with this module for it), and a
-# request can just randomly lose that race. Only flag CRITICAL once it
-# fails this many times in a row.
-readonly DVR_SUSTAINED_SAMPLES="${DVR_SUSTAINED_SAMPLES:-3}"
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -97,12 +93,11 @@ dvr_process_camera() {
 
     local status
     local detail
-    local failed
 
     if [[ "${http_code}" == "200" && -s "${tmp_file}" ]]; then
 
-        failed=0
-        detail="Snapshot actualizado"
+        status="${SW_STATUS_OK}"
+        detail="$(sw_translate "Snapshot updated")"
 
         sw_mkdir "${HTML_DIR}/images"
         mv "${tmp_file}" "${HTML_DIR}/images/${key}.jpg"
@@ -116,26 +111,11 @@ dvr_process_camera() {
 
     else
 
-        failed=1
-        detail="No se pudo obtener el snapshot (HTTP ${http_code:-sin respuesta})"
+        status="${SW_STATUS_CRITICAL}"
+        detail="$(printf "$(sw_translate "The snapshot could not be obtained. (HTTP %sh)")\n" \
+                "${http_code:-sin respuesta}")"
 
         rm -f "${tmp_file}"
-
-    fi
-
-    if (( failed == 1 )) &&
-       sw_csv_all_above "${key}" failed 1 "${DVR_SUSTAINED_SAMPLES}"
-    then
-
-        status="${SW_STATUS_CRITICAL}"
-
-    elif (( failed == 1 )); then
-
-        status="${SW_STATUS_WARNING}"
-
-    else
-
-        status="${SW_STATUS_OK}"
 
     fi
 
@@ -145,7 +125,7 @@ dvr_process_camera() {
 
     sw_state_set "module.label" "${name}"
     sw_state_set "module.icon" "lucide/cctv"
-    sw_state_set "module.order" "70"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     # Only set on success -- a failed attempt leaves whatever snapshot
     # was already loaded from the previous run untouched, instead of
@@ -160,7 +140,7 @@ dvr_process_camera() {
     fi
 
     sw_state_set "detail" "${detail}"
-    sw_state_set "detail.label" "Estado"
+    sw_state_set "detail.label" "$(sw_translate "Status")"
     sw_state_set "detail.order" "20"
 
     if [[ "${status}" == "${SW_STATUS_OK}" ]]; then
@@ -174,11 +154,6 @@ dvr_process_camera() {
     fi
 
     sw_state_save
-
-    sw_csv_append \
-        "${key}" \
-        "failed" \
-        "${failed}"
 
     sw_log_info \
         "${MODULE_NAME}" \
@@ -228,5 +203,4 @@ sw_module_run() {
 
     done
 
-}
 }

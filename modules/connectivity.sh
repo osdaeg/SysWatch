@@ -20,7 +20,9 @@
 readonly MODULE_NAME="Connectivity"
 readonly MODULE_DESCRIPTION="External connectivity monitoring (ping)"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=120
+MODULE_INTERVAL=${MODULE_INTERVAL:-120}
+MODULE_ORDER=${MODULE_ORDER:-70}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -80,7 +82,7 @@ connectivity_update_state() {
 
     sw_state_set "module.label" "Conectividad"
     sw_state_set "module.icon" "lucide/wifi"
-    sw_state_set "module.order" "64"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     local detail="IP externa ${CONNECTIVITY_TARGET} responde"
 
@@ -105,7 +107,12 @@ connectivity_report() {
 
 sw_module_run() {
 
-    sw_state_use "connectivity"
+    sw_state_use "connectivity1"
+
+    if [[ -n "$MODULE_REMOTE" ]]; then
+        sw_state_remote "$MODULE_REMOTE"
+    fi
+    
     sw_state_load
 
     connectivity_collect || return 1

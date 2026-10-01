@@ -26,7 +26,9 @@
 readonly MODULE_NAME="Speedtest"
 readonly MODULE_DESCRIPTION="Internet speed monitoring (Ookla speedtest CLI)"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=120
+MODULE_INTERVAL=${MODULE_INTERVAL:-120}
+MODULE_ORDER=${MODULE_ORDER:-70}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -104,19 +106,27 @@ speedtest_update_state() {
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
-    sw_state_set "module.label" "Speedtest"
+    sw_state_set "module.label" "$(sw_translate "Speedtest")"
     sw_state_set "module.icon" "lucide/gauge"
-    sw_state_set "module.order" "67"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "download" "${SPEEDTEST_DOWNLOAD_MBPS}"
-    sw_state_set "download.label" "Descarga"
+    sw_state_set "download.label" "$(sw_translate "Download")"
     sw_state_set "download.unit" "Mbps"
     sw_state_set "download.order" "10"
+    sw_state_set "download.widget" "line"
+    sw_state_set "download.scale" "fixed"
+    sw_state_set "download.min" "0"
+    sw_state_set "download.max" "350"
 
     sw_state_set "upload" "${SPEEDTEST_UPLOAD_MBPS}"
-    sw_state_set "upload.label" "Subida"
+    sw_state_set "upload.label" "$(sw_translate "Upload")"
     sw_state_set "upload.unit" "Mbps"
     sw_state_set "upload.order" "20"
+    sw_state_set "upload.widget" "line"
+    sw_state_set "upload.scale" "fixed"
+    sw_state_set "upload.min" "0"
+    sw_state_set "upload.max" "80"
 
     sw_state_set "ping" "${SPEEDTEST_PING_MS}"
     sw_state_set "ping.label" "Ping"
@@ -124,15 +134,16 @@ speedtest_update_state() {
     sw_state_set "ping.order" "30"
 
     sw_state_set "loss" "${SPEEDTEST_PACKET_LOSS}"
-    sw_state_set "loss.label" "Pérdida"
+    sw_state_set "loss.label" "$(sw_translate "Lost")"
     sw_state_set "loss.unit" "%"
     sw_state_set "loss.order" "40"
 
     sw_state_set "extip" "${SPEEDTEST_EXTERNAL_IP}"
-    sw_state_set "extip.label" "IP externa"
+    sw_state_set "extip.label" "$(sw_translate "External IP")"
     sw_state_set "extip.order" "50"
 
     sw_state_set "last_run_epoch" "$(date +%s)"
+    sw_state_set "last_run_epoch.hidden" "true"
 
 }
 
@@ -147,6 +158,11 @@ speedtest_report() {
 sw_module_run() {
 
     sw_state_use "speedtest"
+
+    if [[ -n "$MODULE_REMOTE" ]]; then
+        sw_state_remote "$MODULE_REMOTE"
+    fi
+    
     sw_state_load
 
     if ! speedtest_should_run; then
@@ -166,6 +182,28 @@ sw_module_run() {
     speedtest_update_state
 
     sw_state_save
+
+    local dl_csv
+
+    dl_csv="$(awk \
+            -v value="$SPEEDTEST_DOWNLOAD_MBPS" \
+            'BEGIN { printf "%.0f", value }')"
+
+    sw_csv_append \
+        "speedtest" \
+        "download" \
+        "$dl_csv"
+
+    local ul_csv
+    
+    ul_csv="$(awk \
+            -v value="$SPEEDTEST_UPLOAD_MBPS" \
+            'BEGIN { printf "%.0f", value }')"
+
+    sw_csv_append \
+        "speedtest" \
+        "upload" \
+        "$ul_csv"    
 
     speedtest_report
 

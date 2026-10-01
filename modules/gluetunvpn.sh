@@ -21,7 +21,9 @@
 readonly MODULE_NAME="GluetunVPN"
 readonly MODULE_DESCRIPTION="Gluetun VPN status monitoring"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=120
+MODULE_INTERVAL=${MODULE_INTERVAL:-120}
+MODULE_ORDER=${MODULE_ORDER:-70}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -140,26 +142,26 @@ gluetun_update_state() {
 
     sw_state_set "module.label" "Gluetun VPN"
     sw_state_set "module.icon" "lucide/router"
-    sw_state_set "module.order" "65"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
-    sw_state_set "vpn_status" "${GLUETUN_VPN_STATUS}"
-    sw_state_set "vpn_status.label" "Estado VPN"
+    sw_state_set "vpn_status" "$(sw_translate "${GLUETUN_VPN_STATUS}")"
+    sw_state_set "vpn_status.label" "$(sw_translate "VPN status")"
     sw_state_set "vpn_status.order" "10"
 
     sw_state_set "vpn_type" "${GLUETUN_VPN_TYPE}"
-    sw_state_set "vpn_type.label" "Tipo"
+    sw_state_set "vpn_type.label" "$(sw_translate "Type")"
     sw_state_set "vpn_type.order" "20"
 
     sw_state_set "provider" "${GLUETUN_PROVIDER}"
-    sw_state_set "provider.label" "Proveedor"
+    sw_state_set "provider.label" "$(sw_translate "Provider")"
     sw_state_set "provider.order" "25"
 
     sw_state_set "interface" "${GLUETUN_INTERFACE}"
-    sw_state_set "interface.label" "Interfaz"
+    sw_state_set "interface.label" "$(sw_translate "Interface")"
     sw_state_set "interface.order" "30"
 
     sw_state_set "public_ip" "${GLUETUN_PUBLIC_IP}"
-    sw_state_set "public_ip.label" "IP Pública"
+    sw_state_set "public_ip.label" "$(sw_translate "Public IP")"
     sw_state_set "public_ip.order" "40"
 
     local location="${GLUETUN_CITY}"
@@ -167,11 +169,11 @@ gluetun_update_state() {
     [[ -n "${GLUETUN_COUNTRY}" ]] && location="${location} (${GLUETUN_COUNTRY})"
 
     sw_state_set "location" "${location}"
-    sw_state_set "location.label" "Ubicación"
+    sw_state_set "location.label" "$(sw_translate "Location")"
     sw_state_set "location.order" "50"
 
     sw_state_set "port_forward" "${GLUETUN_PORT_FORWARD}"
-    sw_state_set "port_forward.label" "Puerto Forward"
+    sw_state_set "port_forward.label" "$(sw_translate "Port Forward")"
     sw_state_set "port_forward.order" "60"
 
 }
@@ -186,7 +188,12 @@ gluetun_report() {
 
 sw_module_run() {
 
-    sw_state_use "gluetun_vpn"
+    sw_state_use "gluetun_vpn1"
+
+    if [[ -n "$MODULE_REMOTE" ]]; then
+        sw_state_remote "$MODULE_REMOTE"
+    fi
+    
     sw_state_load
 
     gluetun_collect || return 1
@@ -200,5 +207,20 @@ sw_module_run() {
     sw_state_save
 
     gluetun_report
+
+    sw_csv_append \
+        "gluetun" \
+        "interface" \
+        "${GLUETUN_INTERFACE}"
+
+    sw_csv_append \
+        "gluetun" \
+        "public_ip" \
+        "${GLUETUN_PUBLIC_IP}"    
+
+    sw_csv_append \
+        "gluetun" \
+        "port" \
+        "${GLUETUN_PORT_FORWARD}"    
 
 }
