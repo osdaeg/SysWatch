@@ -219,7 +219,7 @@ sw_state_save() {
         
              sw_timer_create_raw "$SW_STATE_MODULE-$HOSTNAME_ALIAS" "$SW_STATE_REMOTE_DIR" "$total" "deletestate"
 
-             #sw_state_temporal_copy
+             sw_state_temporal_copy
 
              sw_csv_export_remote \
                 "${SW_STATE_MODULE}" \
@@ -237,8 +237,10 @@ sw_state_save() {
 
 sw_state_delete() {
 
-    rm -f "$(sw_state_file)"
+    local file
+    file="$(sw_state_file)"
 
+    rm -f "${file}"
 }
 
 sw_state_reset() {

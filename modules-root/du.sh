@@ -89,6 +89,8 @@ du_process_disk_state() {
     local mountpoint
     local disk_status
 
+    local parent=""
+
     mountpoint="$(grep "^_internal.mountpoint=" "${disk_state_file}" | cut -d'=' -f2-)"
     disk_status="$(grep "^status=" "${disk_state_file}" | cut -d'=' -f2-)"
 
@@ -99,6 +101,12 @@ du_process_disk_state() {
 
     sw_state_use "${key}"
 
+    if ! mountpoint -q "${mountpoint}"; then
+        echo "pasa por aca"
+        sw_state_delete
+        return
+    fi
+
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
     fi
@@ -108,12 +116,21 @@ du_process_disk_state() {
         # Nothing wrong (or disk.sh hasn't run yet this cycle) --
         # clear any previous breakdown so a card doesn't linger once
         # the mount recovers.
+        echo "atraviesa este lugar"
         sw_state_delete
         return
 
     fi
 
     sw_state_load
+
+    parent=$(sw_state_get "parent")
+
+    if [[ -z "${parent}" || ! -f "${parent}" ]]; then
+        sw_state_reset
+        sw_state_delete
+        return
+    fi
 
     local heaviest_dir
     heaviest_dir="$(du_find_heaviest "${mountpoint}")"
@@ -157,6 +174,9 @@ du_process_disk_state() {
         (( order += 10 ))
 
     done < <(du_top_subdirs "${heaviest_dir}")
+
+    sw_state_set "parent" "$disk_state_file"
+    sw_state_set "parent.hidden" "true"
 
     sw_state_save
 

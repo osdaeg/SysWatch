@@ -60,7 +60,7 @@ print_cpu_top() {
     for ((i=0; i<${#CPU_PROCESS[@]}; i+=2)); do
         #echo -e "${CPU_PROCESS[i]}\t\t${CPU_PROCESS[i+1]}%"
         sw_state_set "${CPU_PROCESS[i]}"  "${CPU_PROCESS[i+1]}"
-        sw_state_set "${CPU_PROCESS[i]}.label"  "${CPU_PROCESS[i]}"
+        sw_state_set "${CPU_PROCESS[i]}.label" "${CPU_PROCESS[i]}"
         sw_state_set "${CPU_PROCESS[i]}.order" "$order"
         sw_state_set "${CPU_PROCESS[i]}.unit" "%"
         ((order += 10))
@@ -139,7 +139,7 @@ cpu_update_state() {
     # Module metadata
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "CPU"
+    sw_state_set "module.label" "$(sw_translate "CPU")"
     sw_state_set "module.icon" "lucide/cpu"
     sw_state_set "module.order" "$MODULE_ORDER"
 
@@ -149,7 +149,7 @@ cpu_update_state() {
 
     sw_state_set "usage" "${CPU_USAGE}"
 
-    sw_state_set "usage.label" "Uso"
+    sw_state_set "usage.label" "$(sw_translate "Usage")"
     sw_state_set "usage.widget" "line"
     sw_state_set "usage.unit" "%"
     sw_state_set "usage.order" "10"
@@ -159,14 +159,14 @@ cpu_update_state() {
     sw_state_set "usage.min" "0"
     sw_state_set "usage.max" "100"
     
-    sw_state_set "cores.label" "Núcleos"
+    sw_state_set "cores.label" "$(sw_translate "Cores")"
     sw_state_set "cores.order" "15"
 
-    sw_state_set "load1.label"  "Carga: 1 minuto"
+    sw_state_set "load1.label" "$(sw_translate "Load: 1 minute")"
     sw_state_set "load1.order" "20"
-    sw_state_set "load5.label"  "Carga: 5 minutos"
+    sw_state_set "load5.label" "$(sw_translate "Load: 5 minutes")"
     sw_state_set "load5.order" "30"
-    sw_state_set "load15.label" "Carga: 15 minutos"
+    sw_state_set "load15.label" "$(sw_translate "Load: 15 minutes")"
     sw_state_set "load15.order" "40"
 }
 
@@ -219,7 +219,7 @@ sw_module_run() {
         sw_state_reset
     
         sw_state_set module_version "${MODULE_VERSION}"
-        sw_state_set "module.label" "Procesos"
+        sw_state_set "module.label" "$(sw_translate "Processes")"
         sw_state_set "module.icon" "lucide/rows-4"
         sw_state_set "module.order" "900"
 
@@ -240,7 +240,7 @@ sw_module_run() {
         
         sw_state_delete
         #sw_state_set "Estado"  " No hay aplicaciones con uso elevado de CPU: ${CPU_USAGE}%"
-        #sw_state_set "Estado.label"  "Estado:"
+        #sw_state_set "Estado.label" "$(sw_translate "Estado:"
         #sw_state_set "Estado.order" "20"
     fi
     

@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# ==============================================================================
+# 1. CONFIGURA AQUÍ TUS CREDENCIALES DE GOOGLE CLOUD
+# ==============================================================================
+CLIENT_ID="946255443455-0n28295cnoqkuug9fb250sehtgcahrlo.apps.googleusercontent.com"
+CLIENT_SECRET="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"
+
+# ==============================================================================
+# 2. SOLICITAR CÓDIGO DE DISPOSITIVO A GOOGLE
+# ==============================================================================
+echo "🔗 Conectando con Google..."
+RESPONSE=$(curl -s -X POST https://googleapis.com \
+  -d "client_id=$CLIENT_ID" \
+  -d "scope=https://googleapis.com")
+
+# Extraer datos de la respuesta
+DEVICE_CODE=$(echo "$RESPONSE" | jq -r '.device_code')
+USER_CODE=$(echo "$RESPONSE" | jq -r '.user_code')
+VERIFICATION_URL=$(echo "$RESPONSE" | jq -r '.verification_url')
+INTERVAL=$(echo "$RESPONSE" | jq -r '.interval')
+
+if [ "$DEVICE_CODE" == "null" ] || [ -z "$DEVICE_CODE" ]; then
+    echo "❌ Error al conectar con Google. Verifica tu Client ID."
+    echo "Respuesta de Google: $RESPONSE"
+    exit 1
+fi
+
+# ==============================================================================
+# 3. INSTRUCCIONES PARA EL USUARIO
+# ==============================================================================
+echo "----------------------------------------------------------------------"
+echo "👉 1. Abre este enlace en tu navegador: $VERIFICATION_URL"
+echo "👉 2. Introduce este código en la pantalla: $USER_CODE"
+echo "----------------------------------------------------------------------"
+echo "⏳ Esperando a que autorices el acceso en el navegador... (No cierres la terminal)"
+
+# ==============================================================================
+# 4. PASARELA (POLLING) HASTA QUE EL USUARIO AUTORICE
+# ==============================================================================
+while true; do
+    sleep "$INTERVAL"
+    
+    TOKEN_RESPONSE=$(curl -s -X POST https://googleapis.com \
+      -d "client_id=$CLIENT_ID" \
+      -d "client_secret=$CLIENT_SECRET" \
+      -d "device_code=$DEVICE_CODE" \
+      -d "grant_type=urn:ietf:params:oauth:grant-type:device_code")
+      
+    ERROR=$(echo "$TOKEN_RESPONSE" | jq -r '.error')
+    
+    if [ "$ERROR" == "null" ]; then
+        # ¡Éxito! Tenemos los tokens
+        echo -e "\n✅ ¡Autorización completada con éxito!\n"
+        echo "----------------------------------------------------------------------"
+        echo "💾 GUARDA ESTOS DATOS PARA TU SCRIPT PRINCIPAL:"
+        echo "----------------------------------------------------------------------"
+        echo "REFRESH_TOKEN: $(echo "$TOKEN_RESPONSE" | jq -r '.refresh_token')"
+        echo "ACCESS_TOKEN (Temporal): $(echo "$TOKEN_RESPONSE" | jq -r '.access_token')"
+        echo "----------------------------------------------------------------------"
+        break
+    elif [ "$ERROR" != "authorization_pending" ]; then
+        echo -e "\n❌ Error durante la autorización: $ERROR"
+        exit 1
+    fi
+    echo -n "."
+done

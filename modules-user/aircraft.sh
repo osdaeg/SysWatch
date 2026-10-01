@@ -801,7 +801,7 @@ aircraft_update_state() {
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
-    sw_state_set "module.label" "Aircraft"
+    sw_state_set "module.label" "$(sw_translate "Aircraft")"
     sw_state_set "module.icon" "lucide/plane"
     sw_state_set "module.order" "$MODULE_ORDER"
 
@@ -810,7 +810,7 @@ aircraft_update_state() {
     # -------------------------------------------------------------------------
 
     sw_state_set "count" "${AIRCRAFT_COUNT}"
-    sw_state_set "count.label" "Total aircrafts"
+    sw_state_set "count.label" "$(sw_translate "Total aircrafts")"
     sw_state_set "count.widget" "number"
     sw_state_set "count.order" "10"
 
@@ -831,48 +831,48 @@ aircraft_update_state() {
     # -------------------------------------------------------------------------
 
     sw_state_set "nearest.title" "=========="
-    sw_state_set "nearest.title.label" "Nearest"
+    sw_state_set "nearest.title.label" "$(sw_translate "Nearest")"
     sw_state_set "nearest.title.order" "20"
 
     sw_state_set "nearest.icao" "${AIRCRAFT_1_ICAO}"
-    sw_state_set "nearest.icao.label" "ICAO"
+    sw_state_set "nearest.icao.label" "$(sw_translate "ICAO")"
     sw_state_set "nearest.icao.order" "70"
 
     sw_state_set "nearest.callsign" "${AIRCRAFT_1_CALLSIGN}"
-    sw_state_set "nearest.callsign.label" "Call Sign"
+    sw_state_set "nearest.callsign.label" "$(sw_translate "Call Sign")"
     sw_state_set "nearest.callsign.order" "80"
 
     sw_state_set \
         "nearest.country" \
         "$(aircraft_country_display "${AIRCRAFT_1_COUNTRY}")"
 
-    sw_state_set "nearest.country.label" "Country"
+    sw_state_set "nearest.country.label" "$(sw_translate "Country")"
     sw_state_set "nearest.country.order" "90"
 
     sw_state_set "nearest.distance" "${AIRCRAFT_1_DISTANCE}"
-    sw_state_set "nearest.distance.label" "Distance"
+    sw_state_set "nearest.distance.label" "$(sw_translate "Distance")"
     sw_state_set "nearest.distance.unit" "km"
     sw_state_set "nearest.distance.order" "30"
 
     sw_state_set "nearest.altitude" "${AIRCRAFT_1_ALTITUDE}"
-    sw_state_set "nearest.altitude.label" "Altitude"
+    sw_state_set "nearest.altitude.label" "$(sw_translate "Altitude")"
     sw_state_set "nearest.altitude.unit" "m"
     sw_state_set "nearest.altitude.order" "40"
 
     sw_state_set "nearest.speed" "${AIRCRAFT_1_SPEED}"
-    sw_state_set "nearest.speed.label" "Speed"
+    sw_state_set "nearest.speed.label" "$(sw_translate "Speed")"
     sw_state_set "nearest.speed.unit" "m/s"
     sw_state_set "nearest.speed.order" "50"
 
     sw_state_set "nearest.track" "${AIRCRAFT_1_TRACK}"
-    sw_state_set "nearest.track.label" "Track"
+    sw_state_set "nearest.track.label" "$(sw_translate "Track")"
     sw_state_set "nearest.track.unit" "°"
     sw_state_set "nearest.track.order" "60"
 
     if (( AIRCRAFT_1_CLOSE == 1 )); then
 
         sw_state_set "nearest.close" "1"
-        sw_state_set "nearest.close.label" "Cercano"
+        sw_state_set "nearest.close.label" "$(sw_translate "Más cercano")"
         sw_state_set "nearest.close.color" "blue"
 
     else
@@ -889,7 +889,7 @@ aircraft_update_state() {
     if [[ -n "${AIRCRAFT_1_MANUFACTURER}" ]]; then
 
         sw_state_set "nearest.manufacturer" "${AIRCRAFT_1_MANUFACTURER}"
-        sw_state_set "nearest.manufacturer.label" "Manufacturer"
+        sw_state_set "nearest.manufacturer.label" "$(sw_translate "Manufacturer")"
         sw_state_set "nearest.manufacturer.order" "95"
 
     else
@@ -903,7 +903,7 @@ aircraft_update_state() {
     if [[ -n "${AIRCRAFT_1_TYPE}" ]]; then
 
         sw_state_set "nearest.type" "${AIRCRAFT_1_TYPE}"
-        sw_state_set "nearest.type.label" "Type"
+        sw_state_set "nearest.type.label" "$(sw_translate "Type")"
         sw_state_set "nearest.type.order" "96"
 
     else
@@ -917,7 +917,7 @@ aircraft_update_state() {
     if [[ -n "${AIRCRAFT_1_OPERATOR}" ]]; then
 
         sw_state_set "nearest.operator" "${AIRCRAFT_1_OPERATOR}"
-        sw_state_set "nearest.operator.label" "Operator"
+        sw_state_set "nearest.operator.label" "$(sw_translate "Operator")"
         sw_state_set "nearest.operator.order" "97"
 
     else
@@ -935,41 +935,41 @@ aircraft_update_state() {
     if (( AIRCRAFT_COUNT >= 2 )); then
 
         sw_state_set "second.title" "=========="
-        sw_state_set "second.title.label" "Second nearest"
+        sw_state_set "second.title.label" "$(sw_translate "Second nearest")"
         sw_state_set "second.title.order" "99"
 
         sw_state_set "second.icao" "${AIRCRAFT_2_ICAO}"
-        sw_state_set "second.icao.label" "ICAO"
+        sw_state_set "second.icao.label" "$(sw_translate "ICAO")"
         sw_state_set "second.icao.order" "140"
 
         sw_state_set "second.callsign" "${AIRCRAFT_2_CALLSIGN}"
-        sw_state_set "second.callsign.label" "Call Sign"
+        sw_state_set "second.callsign.label" "$(sw_translate "Call Sign")"
         sw_state_set "second.callsign.order" "150"
 
         sw_state_set \
             "second.country" \
             "$(aircraft_country_display "${AIRCRAFT_2_COUNTRY}")"
 
-        sw_state_set "second.country.label" "Country"
+        sw_state_set "second.country.label" "$(sw_translate "Country")"
         sw_state_set "second.country.order" "160"
 
         sw_state_set "second.distance" "${AIRCRAFT_2_DISTANCE}"
-        sw_state_set "second.distance.label" "Distance"
+        sw_state_set "second.distance.label" "$(sw_translate "Distance")"
         sw_state_set "second.distance.unit" "km"
         sw_state_set "second.distance.order" "100"
 
         sw_state_set "second.altitude" "${AIRCRAFT_2_ALTITUDE}"
-        sw_state_set "second.altitude.label" "Altitude"
+        sw_state_set "second.altitude.label" "$(sw_translate "Altitude")"
         sw_state_set "second.altitude.unit" "m"
         sw_state_set "second.altitude.order" "110"
 
         sw_state_set "second.speed" "${AIRCRAFT_2_SPEED}"
-        sw_state_set "second.speed.label" "Speed"
+        sw_state_set "second.speed.label" "$(sw_translate "Speed")"
         sw_state_set "second.speed.unit" "m/s"
         sw_state_set "second.speed.order" "120"
 
         sw_state_set "second.track" "${AIRCRAFT_2_TRACK}"
-        sw_state_set "second.track.label" "Track"
+        sw_state_set "second.track.label" "$(sw_translate "Track")"
         sw_state_set "second.track.unit" "°"
         sw_state_set "second.track.order" "130"
 
@@ -980,7 +980,7 @@ aircraft_update_state() {
         if [[ -n "${AIRCRAFT_2_MANUFACTURER}" ]]; then
 
             sw_state_set "second.manufacturer" "${AIRCRAFT_2_MANUFACTURER}"
-            sw_state_set "second.manufacturer.label" "Manufacturer"
+            sw_state_set "second.manufacturer.label" "$(sw_translate "Manufacturer")"
             sw_state_set "second.manufacturer.order" "165"
 
         else
@@ -994,7 +994,7 @@ aircraft_update_state() {
         if [[ -n "${AIRCRAFT_2_TYPE}" ]]; then
 
             sw_state_set "second.type" "${AIRCRAFT_2_TYPE}"
-            sw_state_set "second.type.label" "Type"
+            sw_state_set "second.type.label" "$(sw_translate "Type")"
             sw_state_set "second.type.order" "166"
 
         else
@@ -1008,7 +1008,7 @@ aircraft_update_state() {
         if [[ -n "${AIRCRAFT_2_OPERATOR}" ]]; then
 
             sw_state_set "second.operator" "${AIRCRAFT_2_OPERATOR}"
-            sw_state_set "second.operator.label" "Operator"
+            sw_state_set "second.operator.label" "$(sw_translate "Operator")"
             sw_state_set "second.operator.order" "167"
 
         else

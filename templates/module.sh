@@ -19,7 +19,10 @@
 readonly MODULE_NAME="Example"
 readonly MODULE_DESCRIPTION="Example module description"
 readonly MODULE_VERSION="0.1.0"
-readonly MODULE_INTERVAL=300
+
+MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_ORDER=${MODULE_ORDER:-10}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -74,7 +77,7 @@ example_update_state() {
 
     sw_state_set "module.label" "Example"
     sw_state_set "module.icon" "lucide/box"
-    sw_state_set "module.order" "50"
+    sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
     # Data
@@ -102,6 +105,11 @@ example_report() {
 sw_module_run() {
 
     sw_state_use "example"
+
+    if [[ -n "$MODULE_REMOTE" ]]; then
+        sw_state_remote "$MODULE_REMOTE"
+    fi
+
     sw_state_load
 
     example_collect

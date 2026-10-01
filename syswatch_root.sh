@@ -27,6 +27,8 @@ source "${LIB_DIR}/notify.sh"
 source "${LIB_DIR}/status.sh"
 source "${LIB_DIR}/csv.sh"
 source "${LIB_DIR}/cache.sh"
+source "${LIB_DIR}/timer.sh"
+source "${LIB_DIR}/translate.sh"
 
 # -----------------------------------------------------------------------------
 # Initialize
@@ -43,7 +45,11 @@ main() {
         "$CACHE_DIR" \
         "${LOCK_DIR}" \
         "${CONFIG_DIR}" \
-        "$HTML_DIR"
+        "$HTML_DIR" \
+        "$REMOTE_DIR" \
+        "$TRANSLATIONS_DIR"
+
+    sw_translations_load
         
     sw_lock_acquire "syswatch_root"    
 
@@ -55,9 +61,11 @@ main() {
 
     sw_run_modules
 
-    sw_log_info "${LAUNCHER_NAME}" "Updating HTML"
+    # sw_log_info "${LAUNCHER_NAME}" "Updating HTML"
 
     # sw_generate_html
+
+    sw_translations_save
 
     sw_log_info "${LAUNCHER_NAME}" "SysWatch finished"
 

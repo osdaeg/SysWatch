@@ -223,11 +223,11 @@ disk_update_state() {
         sw_state_set "_internal.mountpoint" "${DISK_MOUNTPOINT[$i]}"
 
         sw_state_set "fstype" "${DISK_FSTYPE[$i]}"
-        sw_state_set "fstype.label" "Tipo"
+        sw_state_set "fstype.label" "$(sw_translate "Type")"
         sw_state_set "fstype.order" "10"
 
         sw_state_set "used_pct" "${DISK_USE_PCT[$i]}"
-        sw_state_set "used_pct.label" "Uso"
+        sw_state_set "used_pct.label" "$(sw_translate "Used")"
         sw_state_set "used_pct.widget" "gauge"
         sw_state_set "used_pct.unit" "%"
         sw_state_set "used_pct.warning" "${DISK_WARNING}"
@@ -235,23 +235,22 @@ disk_update_state() {
         sw_state_set "used_pct.order" "50"
 
         sw_state_set "total" "${DISK_TOTAL[$i]}"
-        sw_state_set "total.label" "Total"
+        sw_state_set "total.label" "$(sw_translate "Total")"
         sw_state_set "total.render" "bytes"
         sw_state_set "total.order" "20"
 
         sw_state_set "used" "${DISK_USED[$i]}"
-        sw_state_set "used.label" "Usado"
+        sw_state_set "used.label" "$(sw_translate "Used")"
         sw_state_set "used.render" "bytes"
         sw_state_set "used.order" "30"
 
         sw_state_set "avail" "${DISK_AVAIL[$i]}"
-        sw_state_set "avail.label" "Disponible"
+        sw_state_set "avail.label" "$(sw_translate "Available")"
         sw_state_set "avail.render" "bytes"
         sw_state_set "avail.order" "40"
 
         if [[ "${DISK_MOUNTPOINT[$i]}" == /media* ]]; then
-            echo "$(date) (disk_update_state) se genera un timer para ${key}" >> ~/scripts/syswatch/timer.txt
-            sw_state_set "info" "Esta ficha se eliminará un tiempo después de extraer el medio"
+            sw_state_set "info" "$(sw_translate "This card will be removed some time after the media is ejected.")"
             sw_state_set "info.order" "60"
             sw_timer_create "${key}" "10" "deletestate"
         fi

@@ -142,8 +142,8 @@ backrest_process_plan() {
         sw_state_set "module.label" "restic: ${plan}"
         sw_state_set "module.icon" "lucide/archive"
         sw_state_set "module.order" "$MODULE_ORDER"
-        sw_state_set "detail" "Sin corridas registradas"
-        sw_state_set "detail.label" "Detalle"
+        sw_state_set "detail" "$(sw_translate "No runs registered")"
+        sw_state_set "detail.label" "$(sw_translate "Detail")"
         sw_state_save
 
         return
@@ -171,7 +171,8 @@ backrest_process_plan() {
             if (( age_hours > BACKREST_MAX_AGE_HOURS )); then
 
                 plan_status="${SW_STATUS_WARNING}"
-                message="Última corrida hace ${age_hours}h (esperado cada ${BACKREST_MAX_AGE_HOURS}h)"
+                message="$(printf "$(sw_translate "Last run %sh ago (expected every %sh)")\n" \
+                        "$age_hours" "$BACKREST_MAX_AGE_HOURS")"
 
             else
 
@@ -209,15 +210,15 @@ backrest_process_plan() {
     sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "backup_status" "${status}"
-    sw_state_set "backup_status.label" "Estado"
+    sw_state_set "backup_status.label" "$(sw_translate "Status")"
 
     sw_state_set "last_backup" "$(date -d "@$(( end_ms / 1000 ))" '+%Y-%m-%d %H:%M' 2>/dev/null)"
-    sw_state_set "last_backup.label" "Última corrida"
+    sw_state_set "last_backup.label" "$(sw_translate "Last run")"
 
     message="$(sw_sanitize_state_value "$message")"
 
     sw_state_set "detail" "${message}"
-    sw_state_set "detail.label" "Detalle"
+    sw_state_set "detail.label" "$(sw_translate "Detail")"
 
     if [[ "${plan_status}" == "${SW_STATUS_OK}" ]]; then
 

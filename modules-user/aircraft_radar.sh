@@ -110,7 +110,7 @@ aircraft_radar_update_state() {
     # Module metadata (consumed by lib/html.sh)
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "Aircraft Radar"
+    sw_state_set "module.label" "$(sw_translate "Aircraft Radar")"
     sw_state_set "module.icon" "lucide/plane"
     sw_state_set "module.order" "$MODULE_ORDER"
 
@@ -120,7 +120,7 @@ aircraft_radar_update_state() {
 
     sw_state_set "image" "mapa_aviones.png"
 
-    sw_state_set "image.label" "Radar de aviones"
+    sw_state_set "image.label" "$(sw_translate "Aircraft Radar")"
     sw_state_set "image.widget" "image"
     sw_state_set "image.unit" ""
     sw_state_set "image.order" "10"

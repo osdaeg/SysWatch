@@ -112,18 +112,75 @@ git_gitea() {
             "http://${GITEA_HOST}/api/v1/user/repos?limit=50&page=1"
     ) || return 1
 
+    echo "$response" |
+        jq . > "/home/daniel/scripts/syswatch/cache/gitea.json"
+
     GIT_GITEA_REPOS=$(
-    printf '%s\n' "$response" |
-        jq 'length'
-    )
+        printf '%s\n' "$response" |
+            jq 'length'
+    ) || return 1
+
+    GIT_GITEA_ISSUES=$(
+        printf '%s\n' "$response" |
+            jq '[.[].open_issues_count // 0] | add'
+    ) || return 1
+
+    GIT_GITEA_PR=$(
+        printf '%s\n' "$response" |
+            jq '[.[].open_pr_counter // 0] | add'
+    ) || return 1
+
+    GIT_GITEA_FORKS=$(
+        printf '%s\n' "$response" |
+            jq '[.[].forks_count // 0] | add'
+    ) || return 1
 
 }
 
 git_codeberg() {
 
-echo "no"
+    local response
+
+    if [[ -z "$CODEBERG_HOST" ]]; then
+        return 0
+    fi
+
+    if [[ -z "$CODEBERG_TOKEN" ]]; then
+        return 1
+    fi
+
+    response=$(
+        curl -fsS \
+            --max-time 10 \
+            -H "Authorization: token ${CODEBERG_TOKEN}" \
+            "https://${CODEBERG_HOST}/api/v1/user/repos?limit=50&page=1"
+    ) || return 1
+
+    echo "$response" |
+        jq . > "/home/daniel/scripts/syswatch/cache/codeberg.json"
+
+    GIT_CODEBERG_REPOS=$(
+        printf '%s\n' "$response" |
+            jq 'length'
+    ) || return 1
+
+    GIT_CODEBERG_ISSUES=$(
+        printf '%s\n' "$response" |
+            jq '[.[].open_issues_count // 0] | add'
+    ) || return 1
+
+    GIT_CODEBERG_PR=$(
+        printf '%s\n' "$response" |
+            jq '[.[].open_pr_counter // 0] | add'
+    ) || return 1
+
+    GIT_CODEBERG_FORKS=$(
+        printf '%s\n' "$response" |
+            jq '[.[].forks_count // 0] | add'
+    ) || return 1
 
 }
+
 
 
 git_collect() {
@@ -138,6 +195,22 @@ git_collect() {
     GIT_GITHUB_FORKS=0
     GIT_GITHUB_PREVIOUS_ISSUES=0
     GIT_GITHUB_PREVIOUS_FORKS=0
+
+    GIT_CODEBERG_ISSUES=0
+    GIT_CODEBERG_FORKS=0
+    GIT_CODEBERG_PR=0
+    GIT_CODEBERG_PREVIOUS_ISSUES=0
+    GIT_CODEBERG_PREVIOUS_FORKS=0
+    GIT_CODEBERG_PREVIOUS_PR=0
+
+    GIT_GITEA_ISSUES=0
+    GIT_GITEA_FORKS=0
+    GIT_GITEA_PR=0
+    GIT_GITEA_PREVIOUS_ISSUES=0
+    GIT_GITEA_PREVIOUS_FORKS=0
+    GIT_GITEA_PREVIOUS_PR=0
+
+    
 
     if [[ -n "$GITHUB_HOST" ]]; then
         git_github || failed=1
@@ -161,6 +234,8 @@ git_check_increase() {
     local current="$2"
     local file
     local previous
+
+    TEMP_VALUE=0
 
     file="${PROJECT_DIR}/csv/git/${metric}.csv"
 
@@ -233,6 +308,74 @@ git_analyze() {
 
     fi
 
+    if [[ -n "$CODEBERG_HOST" ]]; then
+
+        if ! git_check_increase \
+            "codeberg_issues" \
+            "$GIT_CODEBERG_ISSUES"; then
+
+            GIT_STATUS="${SW_STATUS_INFO}"
+
+            GIT_CODEBERG_PREVIOUS_ISSUES=$TEMP_VALUE
+
+        fi
+
+        if ! git_check_increase \
+            "codeberg_forks" \
+            "$GIT_CODEBERG_FORKS"; then
+
+            GIT_STATUS="${SW_STATUS_INFO}"
+
+            GIT_CODEBERG_PREVIOUS_FORKS=$TEMP_VALUE
+
+        fi
+
+        if ! git_check_increase \
+            "codeberg_pr" \
+            "$GIT_CODEBERG_PR"; then
+
+            GIT_STATUS="${SW_STATUS_INFO}"
+
+            GIT_CODEBERG_PREVIOUS_PR=$TEMP_VALUE
+
+        fi
+
+    fi
+
+    if [[ -n "$GITEA_HOST" ]]; then
+
+        if ! git_check_increase \
+            "gitea_issues" \
+            "$GIT_GITEA_ISSUES"; then
+
+            GIT_STATUS="${SW_STATUS_INFO}"
+
+            GIT_GITEA_PREVIOUS_ISSUES=$TEMP_VALUE
+
+        fi
+
+        if ! git_check_increase \
+            "gitea_forks" \
+            "$GIT_GITEA_FORKS"; then
+
+            GIT_STATUS="${SW_STATUS_INFO}"
+
+            GIT_GITEA_PREVIOUS_FORKS=$TEMP_VALUE
+
+        fi
+
+        if ! git_check_increase \
+            "gitea_pr" \
+            "$GIT_GITEA_PR"; then
+
+            GIT_STATUS="${SW_STATUS_INFO}"
+
+            GIT_GITEA_PREVIOUS_PR=$TEMP_VALUE
+
+        fi
+
+    fi
+
 }
 
 git_update_state() {
@@ -252,6 +395,17 @@ git_update_state() {
     # -------------------------------------------------------------------------
 
     if [[ -n "$GITHUB_HOST" ]]; then
+
+        local github_issues_unit="$(sw_translate "open")"
+        local github_forks_unit="$(sw_translate "created")"
+
+        if (( GIT_GITHUB_PREVIOUS_ISSUES > 0 )); then
+            github_issues_unit+=" ($GIT_GITHUB_PREVIOUS_ISSUES)"
+        fi
+
+        if (( GIT_GITHUB_PREVIOUS_FORKS > 0 )); then
+            github_forks_unit+=" ($GIT_GITHUB_PREVIOUS_FORKS)"
+        fi
 
         sw_state_set \
             "github" \
@@ -279,7 +433,7 @@ git_update_state() {
 
         sw_state_set \
             "github_issues.label" \
-            "↳ Issues"
+            "$(sw_translate "↳ Issues")"
 
         sw_state_set \
             "github_issues.widget" \
@@ -287,7 +441,7 @@ git_update_state() {
 
         sw_state_set \
             "github_issues.unit" \
-            "open ($GIT_GITHUB_PREVIOUS_ISSUES)"
+            "$github_issues_unit"
 
         sw_state_set \
             "github_issues.order" \
@@ -299,7 +453,7 @@ git_update_state() {
 
         sw_state_set \
             "github_forks.label" \
-            "↳ Forks"
+            "$(sw_translate "↳ Forks")"
 
         sw_state_set \
             "github_forks.widget" \
@@ -307,7 +461,7 @@ git_update_state() {
 
         sw_state_set \
             "github_forks.unit" \
-            "created ($GIT_GITHUB_PREVIOUS_FORKS)"
+            "$github_forks_unit"
 
         sw_state_set \
             "github_forks.order" \
@@ -320,6 +474,24 @@ git_update_state() {
     # -------------------------------------------------------------------------
 
     if [[ -n "$CODEBERG_HOST" ]]; then
+
+        local github_issues_unit="$(sw_translate "open")"
+        local github_forks_unit="$(sw_translate "created")"
+        local github_pr_unit="$(sw_translate "created")"
+
+        if (( GIT_CODEBERG_PREVIOUS_ISSUES > 0 )); then
+            github_issues_unit+=" ($GIT_CODEBERG_PREVIOUS_ISSUES)"
+        fi
+
+        if (( GIT_CODEBERG_PREVIOUS_FORKS > 0 )); then
+            github_forks_unit+=" ($GIT_CODEBERG_PREVIOUS_FORKS)"
+        fi
+
+        if (( GIT_CODEBERG_PREVIOUS_PR > 0 )); then
+            github_pr_unit+=" ($GIT_CODEBERG_PREVIOUS_PR)"
+        fi
+
+
 
         sw_state_set \
             "codeberg" \
@@ -341,6 +513,67 @@ git_update_state() {
             "codeberg.order" \
             "20"
 
+        sw_state_set \
+            "codeberg_issues" \
+            "${GIT_CODEBERG_ISSUES}"
+
+        sw_state_set \
+            "codeberg_issues.label" \
+            "$(sw_translate "↳ Issues")"
+
+        sw_state_set \
+            "codeberg_issues.widget" \
+            "value"
+
+        sw_state_set \
+            "codeberg_issues.unit" \
+            "$github_issues_unit"
+
+        sw_state_set \
+            "codeberg_issues.order" \
+            "21"
+
+        sw_state_set \
+            "codeberg_forks" \
+            "${GIT_CODEBERG_FORKS}"
+
+        sw_state_set \
+            "codeberg_forks.label" \
+            "$(sw_translate "↳ Forks")"
+
+        sw_state_set \
+            "codeberg_forks.widget" \
+            "value"
+
+        sw_state_set \
+            "codeberg_forks.unit" \
+            "$github_forks_unit"
+
+        sw_state_set \
+            "codeberg_forks.order" \
+            "22"        
+
+        sw_state_set \
+            "codeberg_pr" \
+            "${GIT_CODEBERG_PR}"
+
+        sw_state_set \
+            "codeberg_pr.label" \
+            "$(sw_translate "↳ Pull requests")"
+
+        sw_state_set \
+            "codeberg_pr.widget" \
+            "value"
+
+        sw_state_set \
+            "codeberg_pr.unit" \
+            "$github_forks_unit"
+
+        sw_state_set \
+            "codeberg_pr.order" \
+            "23"        
+    
+
     fi
 
     # -------------------------------------------------------------------------
@@ -349,13 +582,31 @@ git_update_state() {
 
     if [[ -n "$GITEA_HOST" ]]; then
 
+        local github_issues_unit="$(sw_translate "open")"
+        local github_forks_unit="$(sw_translate "created")"
+        local github_pr_unit="$(sw_translate "created")"
+
+        if (( GIT_GITEA_PREVIOUS_ISSUES > 0 )); then
+            github_issues_unit+=" ($GIT_GITEA_PREVIOUS_ISSUES)"
+        fi
+
+        if (( GIT_GITEA_PREVIOUS_FORKS > 0 )); then
+            github_forks_unit+=" ($GIT_GITEA_PREVIOUS_FORKS)"
+        fi
+
+        if (( GIT_GITEA_PREVIOUS_PR > 0 )); then
+            github_pr_unit+=" ($GIT_GITEA_PREVIOUS_PR)"
+        fi
+
+
+
         sw_state_set \
             "gitea" \
             "${GIT_GITEA_REPOS}"
 
         sw_state_set \
             "gitea.label" \
-            "Gitea"
+            "Gitea/Forgejo"
 
         sw_state_set \
             "gitea.widget" \
@@ -369,7 +620,70 @@ git_update_state() {
             "gitea.order" \
             "30"
 
+        sw_state_set \
+            "gitea_issues" \
+            "${GIT_GITEA_ISSUES}"
+
+        sw_state_set \
+            "gitea_issues.label" \
+            "$(sw_translate "↳ Issues")"
+
+        sw_state_set \
+            "gitea_issues.widget" \
+            "value"
+
+        sw_state_set \
+            "gitea_issues.unit" \
+            "$github_issues_unit"
+
+        sw_state_set \
+            "gitea_issues.order" \
+            "31"
+
+        sw_state_set \
+            "gitea_forks" \
+            "${GIT_GITEA_FORKS}"
+
+        sw_state_set \
+            "gitea_forks.label" \
+            "$(sw_translate "↳ Forks")"
+
+        sw_state_set \
+            "gitea_forks.widget" \
+            "value"
+
+        sw_state_set \
+            "gitea_forks.unit" \
+            "$github_forks_unit"
+
+        sw_state_set \
+            "gitea_forks.order" \
+            "32"        
+
+        sw_state_set \
+            "gitea_pr" \
+            "${GIT_GITEA_PR}"
+
+        sw_state_set \
+            "gitea_pr.label" \
+            "$(sw_translate "↳ Pull requests")"
+
+        sw_state_set \
+            "gitea_pr.widget" \
+            "value"
+
+        sw_state_set \
+            "gitea_pr.unit" \
+            "$github_forks_unit"
+
+        sw_state_set \
+            "gitea_pr.order" \
+            "33"        
+    
+
     fi
+
+
 
 }
 
@@ -416,6 +730,15 @@ sw_module_run() {
 
     sw_csv_append "git" "github_issues" "$GIT_GITHUB_ISSUES"
     sw_csv_append "git" "github_forks" "$GIT_GITHUB_FORKS"
+
+    sw_csv_append "git" "codeberg_issues" "$GIT_CODEBERG_ISSUES"
+    sw_csv_append "git" "codeberg_forks" "$GIT_CODEBERG_FORKS"
+    sw_csv_append "git" "codeberg_pr" "$GIT_CODEBERG_PR"
+
+    sw_csv_append "git" "gitea_issues" "$GIT_GITEA_ISSUES"
+    sw_csv_append "git" "gitea_forks" "$GIT_GITEA_FORKS"
+    sw_csv_append "git" "gitea_pr" "$GIT_GITEA_PR"
+
 
     git_report
 

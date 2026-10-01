@@ -81,7 +81,7 @@ datetime_update_state() {
     # Module metadata (consumed by lib/html.sh)
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "Fecha y hora"
+    sw_state_set "module.label" "$(sw_translate "Date & time")"
     sw_state_set "module.icon" "lucide/clock"
     sw_state_set "module.order" "$MODULE_ORDER"
 
@@ -91,7 +91,7 @@ datetime_update_state() {
 
     #sw_state_set "value" "${DATETIME_VALUE}"
 
-    #sw_state_set "value.label" "Value"
+    #sw_state_set "value.label" "$(sw_translate "Value")"
     #sw_state_set "value.widget" "line"
     #sw_state_set "value.unit" ""
     #sw_state_set "value.order" "10"
@@ -99,23 +99,23 @@ datetime_update_state() {
     #sw_state_set "value.critical" "${DATETIME_CRITICAL}"
     
     sw_state_set "fecha" "${DT_DAY}"
-    sw_state_set "fecha.label" "Fecha"
+    sw_state_set "fecha.label" "$(sw_translate "Date")"
     sw_state_set "fecha.order" "10"
     
     sw_state_set "hora" "${DT_TIME}"
-    sw_state_set "hora.label" "Hora"
+    sw_state_set "hora.label" "$(sw_translate "Time")"
     sw_state_set "hora.order" "20"
     
     sw_state_set "uptime" "${DT_UPTIME}"
-    sw_state_set "uptime.label" "Tiempo de encendido"
+    sw_state_set "uptime.label" "$(sw_translate "Uptime")"
     sw_state_set "uptime.order" "30"
     
     sw_state_set "boot" "${DT_BOOT}"
-    sw_state_set "boot.label" "Encendido"
+    sw_state_set "boot.label" "$(sw_translate "Boot time")"
     sw_state_set "boot.order" "40"
     
     sw_state_set "segundos" "${DT_SECONDS}"
-    sw_state_set "segundos.label" "Segundos"
+    sw_state_set "segundos.label" "$(sw_translate "Seconds")"
     sw_state_set "segundos.order" "50"
 
 }
@@ -124,7 +124,7 @@ datetime_report() {
 
     sw_log_info \
         "${MODULE_NAME}" \
-        "Example value: ${DATETIME_VALUE} (${DATETIME_STATUS})"
+        "Date & time: ${DATETIME_VALUE} (${DATETIME_STATUS})"
 
 }
 

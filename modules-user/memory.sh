@@ -114,20 +114,20 @@ memory_update_state() {
     # Module metadata
     # -------------------------------------------------------------------------
     
-    sw_state_set "module.label" "Memoria"
+    sw_state_set "module.label" "$(sw_translate "Memory")"
     sw_state_set "module.icon" "lucide/memory"
     sw_state_set "module.order" "$MODULE_ORDER"
     
     sw_state_set "usage.widget" "gauge"
     sw_state_set "usage.unit" "%"
     sw_state_set "usage.order" "10"
-    sw_state_set "usage.label" "Uso"
+    sw_state_set "usage.label" "$(sw_translate "Used")"
     
-    sw_state_set "total_mb.label" "Total"
+    sw_state_set "total_mb.label" "$(sw_translate "Total")"
     sw_state_set "total_mb.order" "20"
-    sw_state_set "used_mb.label" "Usada"
+    sw_state_set "used_mb.label" "$(sw_translate "Used")"
     sw_state_set "used_mb.order" "30"
-    sw_state_set "available_mb.label" "Disponible"
+    sw_state_set "available_mb.label" "$(sw_translate "Available")"
     sw_state_set "available_mb.order" "40"
 
 }
@@ -167,7 +167,7 @@ sw_module_run() {
         sw_state_reset
     
         sw_state_set module_version "${MODULE_VERSION}"
-        sw_state_set "module.label" "Procesos en memoria"
+        sw_state_set "module.label" "$(sw_translate "In-memory processes")"
         sw_state_set "module.icon" "lucide/rows-4"
         sw_state_set "module.order" "900"
         

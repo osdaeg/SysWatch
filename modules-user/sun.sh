@@ -80,13 +80,13 @@ sun_format_date() {
 sun_event_name() {
     case "$1" in
         partial_solar_eclipse)
-            echo "Eclipse solar parcial"
+            echo "$(sw_translate "Partial solar eclipse")"
             ;;
         annular_solar_eclipse)
-            echo "Eclipse solar anular"
+            echo "$(sw_translate "Annular solar eclipse")"
             ;;    
         total_solar_eclipse)
-            echo "Eclipse solar total"
+            echo "$(sw_translate "Total solar eclipse")"
             ;;
         *)
             echo "$1"
@@ -252,36 +252,36 @@ sun_update_state() {
     sw_state_set "module_version" "${MODULE_VERSION}"
 
     sw_state_set "module.icon" "lucide/sun"
-    sw_state_set "module.label" "Sol"
+    sw_state_set "module.label" "$(sw_translate "Sun")"
     sw_state_set "module.order" "$MODULE_ORDER"
     
     sw_state_set "constellation" "$(sw_zodiac_emoji $SUN_CONSTELLATION) ${SUN_CONSTELLATION}"
-    sw_state_set "constellation.label" "Constelación"
+    sw_state_set "constellation.label" "$(sw_translate "Constellation")"
     sw_state_set "constellation.order" "20"
 
     sw_state_set "distance" "${SUN_DISTANCE}"
-    sw_state_set "distance.label" "Distancia"
+    sw_state_set "distance.label" "$(sw_translate "Distance")"
     sw_state_set "distance.unit" "km"
     sw_state_set "distance.order" "30"
 
     sw_state_set "altitude" "${SUN_ALTITUDE}"
-    sw_state_set "altitude.label" "Altitud"
+    sw_state_set "altitude.label" "$(sw_translate "Altitude")"
     sw_state_set "altitude.unit" "°"
     sw_state_set "altitude.order" "40"
     sw_state_set "altitude.hidden" "true"
 
     sw_state_set "azimuth" "${SUN_AZIMUTH}"
-    sw_state_set "azimuth.label" "Azimut"
+    sw_state_set "azimuth.label" "$(sw_translate "Azimuth")"
     sw_state_set "azimuth.unit" "°"
     sw_state_set "azimuth.order" "50"
     sw_state_set "azimuth.hidden" "true"
 
     if [[ -n "${SUN_EVENT_TYPE}" ]]; then
         sw_state_set "next_event" "$(sun_event_name "${SUN_EVENT_TYPE}")"
-        sw_state_set "next_event.label" "Próximo evento"
+        sw_state_set "next_event.label" "$(sw_translate "Next event")"
         sw_state_set "next_event.order" "60"
         sw_state_set "next_event_date" "$(sun_format_date "${SUN_EVENT_DATE}")"
-        sw_state_set "next_event_date.label" "Fecha"
+        sw_state_set "next_event_date.label" "$(sw_translate "Date")"
         sw_state_set "next_event_date.order" "70"
         sw_state_set "next_event.hidden" "false"
         sw_state_set "next_event_date.hidden" "false"
@@ -292,7 +292,7 @@ sun_update_state() {
     
     sw_state_set "image" "sol.jpg"
 
-    sw_state_set "image.label" ""
+    sw_state_set "image.label" " "
     sw_state_set "image.widget" "image"
     sw_state_set "image.unit" ""
     sw_state_set "image.order" "80"

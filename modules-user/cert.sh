@@ -166,7 +166,7 @@ cert_update_state() {
     # Module metadata
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "Certificates"
+    sw_state_set "module.label" "$(sw_translate "Certificates")"
     sw_state_set "module.icon" "lucide/shield-check"
     sw_state_set "module.order" "$MODULE_ORDER"
 
@@ -176,7 +176,7 @@ cert_update_state() {
 
     sw_state_set "count" "${CERT_COUNT}"
 
-    sw_state_set "count.label" "Certificates"
+    sw_state_set "count.label" "$(sw_translate "Certificates")"
     sw_state_set "count.order" "10"
 
     sw_state_set "ok" "${CERT_OK}"

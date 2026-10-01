@@ -240,7 +240,7 @@ docker_update_state() {
         if [[ "${DOCKER_HEALTH[$i]}" == "none" ]]; then
 
             sw_state_set "state" "${DOCKER_RUNNING_STATE[$i]}"
-            sw_state_set "state.label" "Estado"
+            sw_state_set "state.label" "$(sw_translate "Status")"
 
             sw_state_set "health" ""
             sw_state_set "health.hidden" "true"
@@ -248,7 +248,7 @@ docker_update_state() {
         else
 
             sw_state_set "health" "${DOCKER_HEALTH[$i]}"
-            sw_state_set "health.label" "Healthcheck"
+            sw_state_set "health.label" "$(sw_translate "Healthcheck")"
 
             sw_state_set "state" ""
             sw_state_set "state.hidden" "true"
@@ -256,7 +256,7 @@ docker_update_state() {
         fi
 
         sw_state_set "restart_policy" "${DOCKER_RESTART_POLICY[$i]}"
-        sw_state_set "restart_policy.label" "Restart policy"
+        sw_state_set "restart_policy.label" "$(sw_translate "Restart policy")"
 
         sw_timer_create "${key}" "5" "deletestate"
 

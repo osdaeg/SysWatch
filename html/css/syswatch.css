@@ -61,16 +61,20 @@ body{
     display:flex;
     justify-content:space-between;
     margin:.35rem 0;
-    margin-top: 10px;
-    margin-bottom: 10px;
+    margin-top:10px;
+    margin-bottom:10px;
 }
 
 .field-label{
     color:#9ca3af;
+    flex-shrink:0;
 }
 
 .field-value{
     font-weight:bold;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+    text-align:right;
 }
 
 .module-icon {

@@ -84,11 +84,11 @@ systemd_update_state() {
     sw_state_set "module.icon" "lucide/server"
     sw_state_set "module.order" "$MODULE_ORDER"
 
-    sw_state_set "system_state" "${SYSTEMD_STATE}"
-    sw_state_set "system_state.label" "Estado"
+    sw_state_set "system_state" "$(sw_translate "${SYSTEMD_STATE}")"
+    sw_state_set "system_state.label" "$(sw_translate "Systemd status")"
 
     sw_state_set "failed_count" "${#SYSTEMD_FAILED_UNITS[@]}"
-    sw_state_set "failed_count.label" "Unidades fallidas"
+    sw_state_set "failed_count.label" "$(sw_translate "Failed units")"
 
     local units_joined=""
 
@@ -99,13 +99,17 @@ systemd_update_state() {
     fi
 
     sw_state_set "failed_units" "${units_joined}"
-    sw_state_set "failed_units.label" "Detalle"
+    sw_state_set "failed_units.label" "$(sw_translate "Units")"
 
     # Only shown when there's actually something to show -- an empty text
     # field would otherwise just render as a blank row.
     if [[ -z "${units_joined}" ]]; then
 
         sw_state_set "failed_units.hidden" "true"
+
+    else
+
+        sw_state_set "failed_units.hidden" "false"    
 
     fi
 

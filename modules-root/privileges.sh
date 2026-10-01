@@ -68,7 +68,7 @@ update_state() {
     sw_state_set "module.order" "$MODULE_ORDER"
     
     
-    sw_state_set "user.label"  "Usuario"
+    sw_state_set "user.label"  "$(sw_translate "User")"
     sw_state_set "user.order" "20"
     sw_state_set "uid.label"  "ID de usuario"
     sw_state_set "uid.order" "30"

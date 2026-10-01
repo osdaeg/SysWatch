@@ -243,11 +243,11 @@ disk_update_state() {
 
     sw_state_set module_version "${MODULE_VERSION}"
 
-    sw_state_set "module.label" "Disk I/O"
+    sw_state_set "module.label" "$(sw_translate "Disk I/O")"
     sw_state_set "module.icon" "lucide/hard-drive"
     sw_state_set "module.order" "$MODULE_ORDER"
 
-    sw_state_set "status.label" "Estado"
+    sw_state_set "status.label" "$(sw_translate "Status")"
     sw_state_set "status.order" "10"
 
     sw_status_update "$DISK_STATUS" || return 1

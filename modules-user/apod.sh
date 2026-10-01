@@ -93,7 +93,7 @@ apod_update_state() {
 
     sw_state_set "image" "foto.${APOD_EXT}"
 
-    sw_state_set "image.label" "Foto del día"
+    sw_state_set "image.label" "$(sw_translate "Photo of the day")"
     sw_state_set "image.widget" "image"
     sw_state_set "image.unit" ""
     sw_state_set "image.order" "10"

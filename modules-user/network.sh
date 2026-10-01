@@ -466,7 +466,7 @@ network_update_state() {
 
         sw_state_set "module_version" "${MODULE_VERSION}"
 
-        sw_state_set "module.label" "${NETWORK_LABEL[$i]}"
+        sw_state_set "module.label" "$(sw_translate "${NETWORK_LABEL[$i]}")"
         sw_state_set "module.icon" "lucide/network"
         sw_state_set "module.order" "$MODULE_ORDER"
 
@@ -486,7 +486,7 @@ network_update_state() {
         sw_state_set "mac.hidden" "true"
 
         sw_state_set "ip" "${NETWORK_IP[$i]}"
-        sw_state_set "ip.label" "IPv4"
+        sw_state_set "ip.label" "$(sw_translate "IPv4")"
 
         #
         # ---------------------------------------------------------------------
@@ -507,7 +507,7 @@ network_update_state() {
         sw_state_set "mtu.hidden" "true"
 
         sw_state_set "speed" "${NETWORK_SPEED[$i]}"
-        sw_state_set "speed.label" "Enlace"
+        sw_state_set "speed.label" "$(sw_translate "Link")"
         sw_state_set "speed.unit" "Mbps"
 
         #
@@ -517,13 +517,13 @@ network_update_state() {
         #
 
         sw_state_set "rx_rate" "${NETWORK_RX_RATE[$i]}"
-        sw_state_set "rx_rate.label" "Descarga"
+        sw_state_set "rx_rate.label" "$(sw_translate "Download")"
         sw_state_set "rx_rate.widget" "line"
         sw_state_set "rx_rate.order" "20"
         sw_state_set "rx_rate.scale"  "zero"
 
         sw_state_set "tx_rate" "${NETWORK_TX_RATE[$i]}"
-        sw_state_set "tx_rate.label" "Subida"
+        sw_state_set "tx_rate.label" "$(sw_translate "Upload")"
         sw_state_set "tx_rate.widget" "line"
         sw_state_set "tx_rate.order" "30"
         sw_state_set "tx_rate.scale"  "zero"
@@ -535,11 +535,11 @@ network_update_state() {
         #
 
         sw_state_set "rx_total" "${NETWORK_RX_BYTES[$i]}"
-        sw_state_set "rx_total.label" "↓ Total"
+        sw_state_set "rx_total.label" "$(sw_translate "↓ Total")"
         sw_state_set "rx_total.render" "bytes"
 
         sw_state_set "tx_total" "${NETWORK_TX_BYTES[$i]}"
-        sw_state_set "tx_total.label" "↑ Total"
+        sw_state_set "tx_total.label" "$(sw_translate "↑ Total")"
         sw_state_set "tx_total.render" "bytes"
 
         #
@@ -595,11 +595,11 @@ network_update_state() {
         peak_tx=$(sw_csv_last_max "${NETWORK_INTERFACES[$i]}" tx_rate 10)
 
         sw_state_set "peak_rx" "${peak_rx}"
-        sw_state_set "peak_rx.label" "Pico RX"
+        sw_state_set "peak_rx.label" "$(sw_translate "RX Peak")"
         sw_state_set "peak_rx.hidden" "true"
 
         sw_state_set "peak_tx" "${peak_tx}"
-        sw_state_set "peak_tx.label" "Pico TX"
+        sw_state_set "peak_tx.label" "$(sw_translate "TX Peak")"
         sw_state_set "peak_tx.hidden" "true"
 
         #

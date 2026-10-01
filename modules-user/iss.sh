@@ -322,7 +322,7 @@ iss_update_state() {
     # Module metadata
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "ISS"
+    sw_state_set "module.label" "$(sw_translate "ISS")"
     sw_state_set "module.icon" "lucide/satellite"
     sw_state_set "module.order" "$MODULE_ORDER"
 
@@ -337,7 +337,7 @@ iss_update_state() {
     sw_state_set "elevation" "${ISS_ELEVATION}"
     sw_state_set "direction" "${ISS_DIRECTION}"
 
-    sw_state_set "minutes_remaining.label" "Remaining"
+    sw_state_set "minutes_remaining.label" "$(sw_translate "Remaining")"
     sw_state_set "minutes_remaining.display" "${ISS_REMAINING_TEXT}"
     sw_state_set "minutes_remaining.widget" "line"
     sw_state_set "minutes_remaining.unit" "min"
@@ -346,22 +346,22 @@ iss_update_state() {
     sw_state_set "minutes_remaining.critical" "${ISS_CRITICAL_MINUTES}"
     #sw_state_set "minutes_remaining.hidden" "true"
 
-    sw_state_set "next_pass_local.label" "Next pass"
+    sw_state_set "next_pass_local.label" "$(sw_translate "Next pass")"
     sw_state_set "next_pass_local.widget" "text"
     sw_state_set "next_pass_local.order" "20"
     sw_state_set "next_pass.hidden" "true"
 
-    sw_state_set "duration.label" "Duration"
+    sw_state_set "duration.label" "$(sw_translate "Duration")"
     sw_state_set "duration.widget" "text"
     sw_state_set "duration.unit" "s"
     sw_state_set "duration.order" "30"
 
-    sw_state_set "elevation.label" "Elevation"
+    sw_state_set "elevation.label" "$(sw_translate "Elevation")"
     sw_state_set "elevation.widget" "text"
     sw_state_set "elevation.unit" "°"
     sw_state_set "elevation.order" "40"
 
-    sw_state_set "direction.label" "Direction"
+    sw_state_set "direction.label" "$(sw_translate "Direction")"
     sw_state_set "direction.widget" "text"
     sw_state_set "direction.order" "50"
 

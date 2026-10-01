@@ -362,7 +362,7 @@ rclone_update_state() {
     local mountpoint
     local order=20
     local label
-    local labels=("% usado" "Total" "Usado" "Libre" "Papelera" "Otros")
+    local labels=("% used" "Total" "Used" "Free" "Trashed" "Others")
     local valor
 
     for (( i=0; i<${#RCLONE_KEYS[@]}; i++ )); do
@@ -383,7 +383,7 @@ rclone_update_state() {
         sw_state_set "module.order" "$MODULE_ORDER"
 
         sw_state_set "detail" "${RCLONE_DETAIL[$i]}"
-        sw_state_set "detail.label" "Estado"
+        sw_state_set "detail.label" "$(sw_translate "Status")"
         sw_state_set "detail.order" "10"
         
         RCLONE_STATS=()
@@ -405,10 +405,10 @@ rclone_update_state() {
             label="${labels[$j]}"
 
             sw_state_set "${label}" "${RCLONE_STATS[$j]}"
-            sw_state_set "${label}.label" "${label}"
+            sw_state_set "${label}.label" "$(sw_translate "${label}")"
             
 
-            if [ "${label}" == "% usado" ] 2>/dev/null; then
+            if [ "${label}" == "% used" ] 2>/dev/null; then
                 sw_state_set "${label}.widget" "gauge"
                 sw_state_set "${label}.unit" "%"
                 sw_state_set "${label}.order" "70"

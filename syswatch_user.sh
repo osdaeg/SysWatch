@@ -29,7 +29,9 @@ source "${LIB_DIR}/html.sh"
 source "${LIB_DIR}/csv.sh"
 source "${LIB_DIR}/cache.sh"
 source "${LIB_DIR}/timer.sh"
+source "${LIB_DIR}/translate.sh"
 
+echo "TEST translate: $(type -t sw_translate)"
 
 # -----------------------------------------------------------------------------
 # Initialize
@@ -47,9 +49,12 @@ main() {
         "${LOCK_DIR}" \
         "${CONFIG_DIR}" \
         "$HTML_DIR" \
-        "$REMOTE_DIR"
+        "$REMOTE_DIR" \
+        "$TRANSLATIONS_DIR"
         
     sw_create_remote_dirs    
+
+    sw_translations_load
 
     sw_lock_acquire "syswatch_user"
 
@@ -103,6 +108,8 @@ main() {
     sw_log_info "${LAUNCHER_NAME}" "Updating HTML"
 
     sw_html_generate
+
+    sw_translations_save
 
     sw_log_info "${LAUNCHER_NAME}" "SysWatch finished"
 

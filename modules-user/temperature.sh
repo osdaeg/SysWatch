@@ -276,7 +276,7 @@ temp_update_state() {
         sw_state_set "module.order" "$MODULE_ORDER"
 
         sw_state_set "value" "${TEMP_VALUE[$i]}"
-        sw_state_set "value.label" "Temperatura"
+        sw_state_set "value.label" "$(sw_translate "Temperature")"
         sw_state_set "value.widget" "gauge"
         sw_state_set "value.unit" "°C"
         sw_state_set "value.warning" "${TEMP_WARNING}"

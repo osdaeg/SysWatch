@@ -103,20 +103,20 @@ netbird_update_state() {
     sw_state_set "module.icon" "lucide/bird"
     sw_state_set "module.order" "$MODULE_ORDER"
 
-    sw_state_set "daemon" "${NETBIRD_DAEMON_STATUS}"
-    sw_state_set "daemon.label" "Daemon"
+    sw_state_set "daemon" "$(sw_translate "${NETBIRD_DAEMON_STATUS}")"
+    sw_state_set "daemon.label" "$(sw_translate "Daemon")"
 
-    sw_state_set "management" "${NETBIRD_MANAGEMENT_CONNECTED}"
-    sw_state_set "management.label" "Management"
+    sw_state_set "management" "$(sw_translate "${NETBIRD_MANAGEMENT_CONNECTED}")"
+    sw_state_set "management.label" "$(sw_translate "Management")"
 
     sw_state_set "signal" "${NETBIRD_SIGNAL_CONNECTED}"
-    sw_state_set "signal.label" "Signal"
+    sw_state_set "signal.label" "$(sw_translate "Signal")"
 
     sw_state_set "peers" "${NETBIRD_PEERS_CONNECTED}/${NETBIRD_PEERS_TOTAL}"
-    sw_state_set "peers.label" "Peers"
+    sw_state_set "peers.label" "$(sw_translate "Peers")"
 
     sw_state_set "relays" "${NETBIRD_RELAYS_AVAILABLE}/${NETBIRD_RELAYS_TOTAL}"
-    sw_state_set "relays.label" "Relays"
+    sw_state_set "relays.label" "$(sw_translate "Relays")"
 
 }
 

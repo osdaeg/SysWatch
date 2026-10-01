@@ -29,6 +29,7 @@ readonly CONFIG_DIR="${PROJECT_DIR}/config"
 : "${IMPORT_DIR:=${PROJECT_DIR}/import}"
 : "${REMOTE_DIR:=${PROJECT_DIR}/remote}"
 : "${HELPERS_DIR:=${PROJECT_DIR}/helpers}"
+: "${TRANSLATIONS_DIR:=${PROJECT_DIR}/translations}"
 
 
 # -----------------------------------------------------------------------------
@@ -52,7 +53,7 @@ zodiaco=(
     ["Scorpio"]="♏"
     ["Ophiuchus"]="⛎"
     ["Sagittarius"]="♐"
-    ["Capricorn"]="♑"
+    ["Capricornus"]="♑"
     ["Aquarius"]="♒"
     ["Pisces"]="♓"
     )

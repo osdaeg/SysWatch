@@ -78,35 +78,35 @@ moon_phase_name() {
 
     case "$1" in
         "New Moon")
-            echo "🌑 Luna nueva"
+            echo "🌑 $(sw_translate "New Moon")"
             ;;
 
         "Waxing Crescent")
-            echo "🌒 Luna creciente"
+            echo "🌒 $(sw_translate "Waxing Crescent")"
             ;;
 
         "First Quarter")
-            echo "🌓 Cuarto creciente"
+            echo "🌓 $(sw_translate "First Quarter")"
             ;;
 
         "Waxing Gibbous")
-            echo "🌔 Gibosa creciente"
+            echo "🌔 $(sw_translate "Waxing Gibbous")"
             ;;
 
         "Full Moon")
-            echo "🌕 Luna llena"
+            echo "🌕 $(sw_translate "Full Moon")"
             ;;
 
         "Waning Gibbous")
-            echo "🌖 Gibosa menguante"
+            echo "🌖 $(sw_translate "Waning Gibbous")"
             ;;
 
         "Last Quarter")
-            echo "🌗 Cuarto menguante"
+            echo "🌗 $(sw_translate "Last Quarter")"
             ;;
 
         "Waning Crescent")
-            echo "🌘 Luna menguante"
+            echo "🌘 $(sw_translate "Waning Crescent")"
             ;;
 
         *)
@@ -135,13 +135,13 @@ moon_phase_image() {
 moon_event_name() {
     case "$1" in
         penumbral_lunar_eclipse)
-            echo "Eclipse lunar penumbral"
+            echo "$(sw_translate "Penumbral lunar eclipse")"
             ;;
         partial_lunar_eclipse)
-            echo "Eclipse lunar parcial"
+            echo "$(sw_translate "Partial lunar eclipse")"
             ;;
         total_lunar_eclipse)
-            echo "Eclipse lunar total"
+            echo "$(sw_translate "Total lunar eclipse")"
             ;;
         *)
             echo "$1"
@@ -298,8 +298,8 @@ moon_update_status() {
     MOON_STATUS="${SW_STATUS_OK}"
     
     if (( MOON_DISTANCE_KM <= 360000 )) && [[ "$MOON_PHASE" == "Full Moon" ]]; then
-        MOON_SUPER="Superluna"
-        MOON_STATUS="${SW_STATUS_WARNING}"
+        MOON_SUPER="$(sw_translate "Supermoon")"
+        MOON_STATUS="${SW_STATUS_INFO}"
     fi
 
     if [[ -n "${MOON_EVENT_DATE}" ]]; then
@@ -329,54 +329,54 @@ moon_update_state() {
     sw_state_set "module_version" "${MODULE_VERSION}"
 
     sw_state_set "module.icon" "lucide/moon"
-    sw_state_set "module.label" "Luna"
+    sw_state_set "module.label" "$(sw_translate "Moon")"
     sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "phase" "$(moon_phase_name "${MOON_PHASE}")"
-    sw_state_set "phase.label" "Fase"
+    sw_state_set "phase.label" "$(sw_translate "Phase")"
     sw_state_set "phase.order" "10"
 
     echo "${MOON_PHASE}" >> ~/scripts/syswatch/fases.txt
     
     if [[ -n "${MOON_SUPER}" ]]; then
         sw_state_set "size" "${MOON_SUPER}"
-        sw_state_set "size.label" "Tamaño"
+        sw_state_set "size.label" "$(sw_translate "Size")"
         sw_state_set "size.order" "15"
         sw_state_set "size.hidden" "false"
     else
         sw_state_set "size" "Normal"
-        sw_state_set "size.label" "Tamaño"
+        sw_state_set "size.label" "$(sw_translate "Size")"
         sw_state_set "size.order" "15"
         sw_state_set "size.hidden" "true"
     fi    
     
     sw_state_set "constellation" "$(sw_zodiac_emoji ${MOON_CONSTELLATION}) $MOON_CONSTELLATION"
-    sw_state_set "constellation.label" "Constelación"
+    sw_state_set "constellation.label" "$(sw_translate "Constellation")"
     sw_state_set "constellation.order" "20"
 
     sw_state_set "distance" "${MOON_DISTANCE}"
-    sw_state_set "distance.label" "Distancia"
+    sw_state_set "distance.label" "$(sw_translate "Distance")"
     sw_state_set "distance.unit" "km"
     sw_state_set "distance.order" "30"
 
     sw_state_set "altitude" "${MOON_ALTITUDE}"
-    sw_state_set "altitude.label" "Altitud"
+    sw_state_set "altitude.label" "$(sw_translate "Altitude")"
     sw_state_set "altitude.unit" "°"
     sw_state_set "altitude.order" "40"
     sw_state_set "altitude.hidden" "true"
 
     sw_state_set "azimuth" "${MOON_AZIMUTH}"
-    sw_state_set "azimuth.label" "Azimut"
+    sw_state_set "azimuth.label" "$(sw_translate "Azimuth")"
     sw_state_set "azimuth.unit" "°"
     sw_state_set "azimuth.order" "50"
     sw_state_set "azimuth.hidden" "true"
 
     if [[ -n "${MOON_EVENT_TYPE}" ]]; then
         sw_state_set "next_event" "$(moon_event_name "${MOON_EVENT_TYPE}")"
-        sw_state_set "next_event.label" "Próximo evento"
+        sw_state_set "next_event.label" "$(sw_translate "Next event")"
         sw_state_set "next_event.order" "60"
         sw_state_set "next_event_date" "$(moon_format_date "${MOON_EVENT_DATE}")"
-        sw_state_set "next_event_date.label" "Fecha"
+        sw_state_set "next_event_date.label" "$(sw_translate "Date")"
         sw_state_set "next_event_date.order" "70"
         sw_state_set "next_event.hidden" "false"
         sw_state_set "next_event_date.hidden" "false"
@@ -387,7 +387,7 @@ moon_update_state() {
     
     sw_state_set "image" "$(moon_phase_image "${MOON_PHASE}")"
 
-    sw_state_set "image.label" ""
+    sw_state_set "image.label" " "
     sw_state_set "image.widget" "image"
     sw_state_set "image.unit" ""
     sw_state_set "image.order" "80"
