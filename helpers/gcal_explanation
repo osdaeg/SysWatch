@@ -1,0 +1,55 @@
+Step-by-Step Guide / Guía Paso a Paso
+
+​1. Create a Google Cloud Project / Crear un proyecto en Google Cloud
+​[EN]: Go to the Google Cloud Console, click on the project dropdown at the top, and click New Project. Give it a name and create it.
+​[ES]: Ve a la Google Cloud Console, haz clic en el selector de proyectos en la parte superior y selecciona Nuevo proyecto. Asígnale un nombre y créalo.
+
+​2. Enable APIs / Habilitar las APIs
+​[EN]: In your project, go to APIs & Services > Library. Search for and enable both Google Calendar API and Google Tasks API.
+​[ES]: En tu proyecto, ve a APIs y servicios > Biblioteca. Busca y habilita tanto Google Calendar API como Google Tasks API.
+
+​3. Configure OAuth Consent Screen / Configurar la pantalla de consentimiento de OAuth
+​[EN]: Go to APIs & Services > OAuth consent screen. Choose External (or Internal), fill in the required app information (App name, support email, developer contact), and save.
+​[ES]: Ve a APIs y servicios > Pantalla de consentimiento de OAuth. Elige Externo (o Interno), rellena la información obligatoria de la app (nombre de la aplicación, correo de asistencia, contacto del desarrollador) y guarda.
+
+​4. Add Scopes / Agregar los Scopes
+​[EN]: In the OAuth consent screen settings (or under the "Data Access" / Scopes section), click Add or Remove Scopes and manually add the following two scopes:
+​[https://www.googleapis.com/auth/calendar.readonly](https://www.googleapis.com/auth/calendar.readonly)
+​[https://www.googleapis.com/auth/tasks.readonly](https://www.googleapis.com/auth/tasks.readonly)
+​[ES]: En la configuración de la pantalla de consentimiento (o sección de permisos), haz clic en Agregar o quitar permisos y añade manualmente los siguientes dos scopes:
+​[https://www.googleapis.com/auth/calendar.readonly](https://www.googleapis.com/auth/calendar.readonly)
+​[https://www.googleapis.com/auth/tasks.readonly](https://www.googleapis.com/auth/tasks.readonly)
+
+​5. Create Credentials / Crear las credenciales
+​[EN]: Go to APIs & Services > Credentials, click Create Credentials, and select OAuth client ID. Choose Desktop app as the application type, name it, and click Create.
+​[ES]: Ve a APIs y servicios > Credenciales, haz clic en Crear credenciales y selecciona ID de cliente de OAuth. Elige App de escritorio como tipo de aplicación, asígnale un nombre y haz clic en Crear.
+
+​6. Download the Credentials File / Descargar el archivo de credenciales
+​[EN]: Download the JSON file containing your credentials, rename it to credentials.json, and place it in the same folder where your Python script will run.
+​[ES]: Descarga el archivo JSON con tus credenciales, cámbiale el nombre a credentials.json y colócalo en la misma carpeta donde vas a ejecutar tu script de Python.
+
+​7. Run the Python Script / Ejecutar el script de Python
+​[EN]: Create and run a Python script using the following code to open the browser, authorize the app, and generate the tokens:
+​[ES]: Crea y ejecuta un script de Python usando el siguiente código para abrir el navegador, autorizar la app y generar los tokens:
+
+from google_auth_oauthlib.flow import InstalledAppFlow
+
+# Combined read-only scopes for Calendar and Tasks
+SCOPES = [
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/tasks.readonly'
+]
+
+def main():
+    flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+    print("Opening browser for authorization... / Abriendo el navegador para autorizar...")
+    creds = flow.run_local_server(port=0)
+
+    with open('token.json', 'w') as token:
+        token.write(creds.to_json())
+    
+    print("\nToken generated successfully! Look for your refresh_token inside 'token.json'.")
+    print("¡Token generado con éxito! Busca tu 'refresh_token' dentro de 'token.json'.")
+
+if __name__ == '__main__':
+    main()

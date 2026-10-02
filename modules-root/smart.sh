@@ -441,7 +441,7 @@ smart_update_state() {
         sw_state_set \
             "device" \
             "${SMART_DEVICES[$i]}"
-        sw_state_set "device.label" "Dispositivo"    
+        sw_state_set "device.label" "$(sw_translate "Device")"
 
         #sw_state_set \
         #    "model" \
@@ -458,7 +458,7 @@ smart_update_state() {
         sw_state_set \
             "capacity" \
             "${GIB}"
-        sw_state_set "capacity.label" "Capacidad"  
+        sw_state_set "capacity.label" "$(sw_translate "Capacity")"
         sw_state_set "capacity.unit" "Gb"
 
         # ---------------------------------------------------------------------
@@ -469,7 +469,7 @@ smart_update_state() {
             "health" \
             "${SMART_HEALTH[$i]}"
         #sw_state_set "health.icon" "lucide/hearth"
-        sw_state_set "health.label" "Salud"
+        sw_state_set "health.label" "$(sw_translate "Health")"
         
         sw_state_set "status" "${SMART_STATUS[$i]}"
 
@@ -481,31 +481,31 @@ smart_update_state() {
             "temperature" \
             "${SMART_TEMPERATURE[$i]}"
         #sw_state_set "temperature.icon" "lucide/thermometer"  
-        sw_state_set "temperature.label" "Temperatura"
+        sw_state_set "temperature.label" "$(sw_translate "Temperature")"
         sw_state_set "temperature.unit" "ºC"  
 
         sw_state_set \
             "power_on_hours" \
             "${SMART_POWER_ON_HOURS[$i]}"
         #sw_state_set "power_on_hours.icon" "lucide/clock" 
-        sw_state_set "power_on_hours.label" "Tiempo de funcionamiento"
+        sw_state_set "power_on_hours.label" "$(sw_translate "Operating time")"
         sw_state_set "power_on_hours.unit" "hs"  
 
         sw_state_set \
             "power_cycle_count" \
             "${SMART_POWER_CYCLE_COUNT[$i]}"
-        sw_state_set "power_cycle_count.label" "Contador"       
+        sw_state_set "power_cycle_count.label" "$(sw_translate "Counter")"
 
         sw_state_set \
             "percent_used" \
             "${SMART_PERCENT_USED[$i]}"
-        sw_state_set "percent_used.label" "% Usado"    
+        sw_state_set "percent_used.label" "$(sw_translate "% Used")"
         sw_state_set "percent_used.unit" "%"
             
         sw_state_set \
             "life_left" \
             "${SMART_LIFE_LEFT[$i]}" 
-        sw_state_set "life_left.label" "Tiempo de vida"     
+        sw_state_set "life_left.label" "$(sw_translate "Lifetime")"
         sw_state_set "life_left.unit" "%" 
 
         # ---------------------------------------------------------------------
@@ -515,27 +515,27 @@ smart_update_state() {
         sw_state_set \
             "reallocated" \
             "${SMART_REALLOCATED[$i]}"
-        sw_state_set "reallocated.label" "Relocalizado"         
+        sw_state_set "reallocated.label" "$(sw_translate "Reallocated")"
 
         sw_state_set \
             "pending" \
             "${SMART_PENDING[$i]}"
-        sw_state_set "pending.label" "Pendiente"         
+        sw_state_set "pending.label" "$(sw_translate "Pending")"
 
         sw_state_set \
             "uncorrectable" \
             "${SMART_UNCORRECTABLE[$i]}"
-        sw_state_set "uncorrectable.label" "Incorregible"         
+        sw_state_set "uncorrectable.label" "$(sw_translate "Uncorrectable")"         
 
         sw_state_set \
             "media_errors" \
             "${SMART_MEDIA_ERRORS[$i]}"
-        sw_state_set "media_errors.label" "Promedio de errores"         
+        sw_state_set "media_errors.label" "$(sw_translate "Average number of errors")"    
 
         sw_state_set \
             "critical_warning" \
             "${SMART_CRITICAL_WARNING[$i]}"
-        sw_state_set "critical_warning.label" "Avisos críticos"         
+        sw_state_set "critical_warning.label" "$(sw_translate "Critical alerts")"       
             
         sw_state_save    
         

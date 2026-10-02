@@ -89,7 +89,7 @@ zombie_update_state() {
 
     sw_state_set "count" "${ZOMBIE_COUNT}"
 
-    sw_state_set "count.label" "Procesos zombie"
+    sw_state_set "count.label" "$(sw_translate "Zombie processes")"
     sw_state_set "count.widget" "value"
     sw_state_set "count.unit" ""
     sw_state_set "count.order" "10"
@@ -97,13 +97,13 @@ zombie_update_state() {
     if (( ZOMBIE_COUNT > 0 )); then
 
         sw_state_set "details" "${ZOMBIE_DETAILS}"
-        sw_state_set "details.label" "Procesos"
+        sw_state_set "details.label" "$(sw_translate "Processes")"
         sw_state_set "details.widget" "message"
         sw_state_set "details.order" "20"
 
     else    
-        sw_state_set "details" "ninguno"
-        sw_state_set "details.label" "Procesos"
+        sw_state_set "details" "$(sw_translate "none")"
+        sw_state_set "details.label" "$(sw_translate "Processes")"
         sw_state_set "details.widget" "message"
         sw_state_set "details.order" "20"
     fi

@@ -209,7 +209,7 @@ updates_update_state() {
     # Module metadata (consumed by lib/html.sh)
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "Updates"
+    sw_state_set "module.label" "$(sw_translate "Updates")"
     sw_state_set "module.icon" "lucide/package-check"
     sw_state_set "module.order" "$MODULE_ORDER"
 
@@ -219,7 +219,7 @@ updates_update_state() {
 
     sw_state_set "total" "${UPDATES_TOTAL}"
 
-    sw_state_set "total.label" "Updates"
+    sw_state_set "total.label" "$(sw_translate "Updates")"
     sw_state_set "total.widget" "number"
     sw_state_set "total.unit" ""
     sw_state_set "total.order" "10"
@@ -227,6 +227,7 @@ updates_update_state() {
     sw_state_set "total.critical" "${UPDATES_CRITICAL}"
 
     sw_state_set "manager" "${UPDATES_MANAGER}"
+    sw_state_set "manager.label" "$(sw_translate "Manager")"
 
 }
 

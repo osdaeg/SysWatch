@@ -2,7 +2,7 @@ import os
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 # Alcance exclusivo de solo lectura para Google Calendar
-SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+SCOPES = ['https://www.googleapis.com/auth/calendar.readonly','https://www.googleapis.com/auth/tasks.readonly']
 
 def main():
     # Carga el archivo credentials.json descargado de la consola

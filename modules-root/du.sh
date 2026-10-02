@@ -154,7 +154,7 @@ du_process_disk_state() {
     sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "heaviest_dir" "${heaviest_dir}"
-    sw_state_set "heaviest_dir.label" "Carpeta más pesada"
+    sw_state_set "heaviest_dir.label" "$(sw_translate "Heaviest dir")"
     sw_state_set "heaviest_dir.order" "10"
 
     local order=20

@@ -236,7 +236,7 @@ chkrootkit_update_state() {
     sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "infected" "${CHKROOTKIT_INFECTED}"
-    sw_state_set "infected.label" "Infecciones"
+    sw_state_set "infected.label" "$(sw_translate "Infections")"
     sw_state_set "infected.order" "10"
 
     for key in "${!SW_STATE[@]}"; do
@@ -246,7 +246,7 @@ chkrootkit_update_state() {
     done
 
     sw_state_set "warnings" "${CHKROOTKIT_WARNINGS}"
-    sw_state_set "warnings.label" "Warnings"
+    sw_state_set "warnings.label" "$(sw_translate "Warnings")"
     sw_state_set "warnings.order" "20"
 
     for i in "${!WARNING_LIST[@]}"
@@ -254,7 +254,7 @@ chkrootkit_update_state() {
     echo "${WARNING_LIST[$i]}"
         order=$(( order + 10 ))
         sw_state_set "warning${i}" "${WARNING_LIST[$i]}"
-        sw_state_set "warning${i}.label" "Warning $((i + 1))"
+        sw_state_set "warning${i}.label" "$(printf "$(sw_translate "Warning %s")\n" "$((i + 1))")"
         sw_state_set "warning${i}.order" "$order"
     done
 
@@ -267,21 +267,21 @@ chkrootkit_update_state() {
     done
 
     sw_state_set "falses" "${CHKROOTKIT_FALSE_POSITIVES}"
-    sw_state_set "falses.label" "Falsos positivos"
+    sw_state_set "falses.label" "$(sw_translate "False positives")"
     sw_state_set "falses.order" "$order"
     
     for i in "${!WARNING_OK_LIST[@]}"
     do
         order=$(( order + 10 ))
         sw_state_set "false${i}" "${WARNING_OK_LIST[$i]}"
-        sw_state_set "false${i}.label" "Falso $((i + 1))"
+        sw_state_set "false${i}.label" "$(printf "$(sw_translate "False %s")\n" "$((i + 1))")"
         sw_state_set "false${i}.order" "$order"
     done
 
     order=$(( order + 10 ))
 
     sw_state_set "last_scan" "$(date -d "@${CHKROOTKIT_LOG_MTIME}" '+%Y-%m-%d %H:%M' 2>/dev/null)"
-    sw_state_set "last_scan.label" "Última corrida"
+    sw_state_set "last_scan.label" "$(sw_translate "Last run")"
     sw_state_set "last_scan.order" "$order"
 
     

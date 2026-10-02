@@ -71,31 +71,46 @@ firewall_collect_ufw() {
     rules_ipv4=$((rules - rules_ipv6))
 
     sw_state_set "provider" "UFW"
+    sw_state_set "provider.label" "$(sw_translate "Provider")"
     sw_state_set "version" "${version}"
+    sw_state_set "version.label" "$(sw_translate "Version")"
 
     sw_state_set "incoming" "$(
-        printf '%s\n' "${output}" |
-            sed -n 's/^Default: \([^,]*\) (incoming),.*/\1/p'
-    )"
+        sw_translate "$(
+            printf '%s\n' "${output}" |
+                sed -n 's/^Default: \([^,]*\) (incoming),.*/\1/p'
+            )"
+        )"
+    sw_state_set "incoming.label" "$(sw_translate "Incoming")"
 
     sw_state_set "outgoing" "$(
-        printf '%s\n' "${output}" |
-            sed -n 's/^Default: [^,]* (incoming), \([^,]*\) (outgoing),.*/\1/p'
-    )"
+        sw_translate "$(
+            printf '%s\n' "${output}" |
+                sed -n 's/^Default: [^,]* (incoming), \([^,]*\) (outgoing),.*/\1/p'
+            )"
+        )"
+    sw_state_set "outgoing.label" "$(sw_translate "Outgoing")"
 
     sw_state_set "routed" "$(
-        printf '%s\n' "${output}" |
-            sed -n 's/^Default: [^,]* (incoming), [^,]* (outgoing), \([^,]*\) (routed).*/\1/p'
-    )"
+        sw_translate "$(
+            printf '%s\n' "${output}" |
+                sed -n 's/^Default: [^,]* (incoming), [^,]* (outgoing), \([^,]*\) (routed).*/\1/p'
+            )"
+        )"
+    sw_state_set "routed.label" "$(sw_translate "Routed")"
 
     sw_state_set "logging" "$(
         printf '%s\n' "${output}" |
             sed -n 's/^Logging: //p'
     )"
+    sw_state_set "logging.label" "$(sw_translate "Logging")"
 
     sw_state_set "rules" "${rules}"
+    sw_state_set "rules.label" "$(sw_translate "Rules")"
     sw_state_set "rules_ipv4" "${rules_ipv4}"
+    sw_state_set "rules_ipv4.label" "$(sw_translate "IPv4 Rules")"
     sw_state_set "rules_ipv6" "${rules_ipv6}"
+    sw_state_set "rules_ipv6.label" "$(sw_translate "IPv6 Rules")"
 
     case "${status_line}" in
 
@@ -215,12 +230,19 @@ firewall_collect_firewalld() {
     fi
 
     sw_state_set "provider" "firewalld"
+    sw_state_set "provider.label" "$(sw_translate "Provider")"
     sw_state_set "version" "${version}"
+    sw_state_set "version.label" "$(sw_translate "Version")"
     sw_state_set "zones" "${active_zones}"
+    sw_state_set "zones.label" "$(sw_translate "Zones")"
     sw_state_set "zone" "${active_zone}"
+    sw_state_set "zone.label" "$(sw_translate "Zone")"
     sw_state_set "interfaces" "${interfaces}"
+    sw_state_set "interfaces.label" "$(sw_translate "Interfaces")"
     sw_state_set "services" "${services}"
+    sw_state_set "services.label" "$(sw_translate "Services")"
     sw_state_set "ports" "${ports}"
+    sw_state_set "ports.label" "$(sw_translate "Ports")"
 
     sw_state_set "rich_rules" "$(
         printf '%s\n' "${rich_rules}" |
@@ -339,11 +361,17 @@ firewall_collect_nftables() {
     )"
 
     sw_state_set "provider" "nftables"
+    sw_state_set "provider.label" "$(sw_translate "Provider")"
     sw_state_set "tables" "${tables}"
+    sw_state_set "tables.label" "$(sw_translate "Tables")"
     sw_state_set "chains" "${chains}"
+    sw_state_set "chains.label" "$(sw_translate "Chains")"
     sw_state_set "rules" "${rules}"
+    sw_state_set "rules.label" "$(sw_translate "Rules")"
     sw_state_set "input_policy" "${input_policy}"
+    sw_state_set "unput_policy.label" "$(sw_translate "Input policy")"
     sw_state_set "forward_policy" "${forward_policy}"
+    sw_state_set "forward_policy.label" "$(sw_translate "Forward policy")"
 
     if ((chains > 0)); then
 
@@ -412,7 +440,9 @@ firewall_update_state() {
     # -------------------------------------------------------------------------
 
     sw_state_set "provider" "${FIREWALL_PROVIDER}"
+    sw_state_set "provider.label" "$(sw_translate "Provider")"
     sw_state_set "status" "${FIREWALL_STATUS}"
+    sw_state_set "status.label" "$(sw_translate "Status")"
 
 }
 

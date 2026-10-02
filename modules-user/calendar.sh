@@ -89,6 +89,7 @@ calendar_update_state() {
     sw_state_delete_key "error.label"
     sw_state_delete_key "error.order"
 
+
     # -------------------------------------------------------------------------
     # Error
     # -------------------------------------------------------------------------
@@ -113,10 +114,20 @@ calendar_update_state() {
             "events" \
             "$(sw_translate "No events until tomorrow")"
 
-        sw_state_set "events.label" ""
+        sw_state_set "events.label" "$(sw_translate "Events")"
         sw_state_set "events.order" "10"
 
+        sw_state_delete_key "next_event"
+        sw_state_delete_key "next_event.label"
+        sw_state_delete_key "next_event.order"
+
         return
+
+    else
+
+        sw_state_delete_key "events"
+        sw_state_delete_key "events.label"
+        sw_state_delete_key "events.order"
 
     fi
 
@@ -132,7 +143,7 @@ calendar_update_state() {
 
     local index=1
 
-    local today_event_order=20
+    local today_event_order=30
     local tomorrow_event_order=300
 
     local start
@@ -257,11 +268,15 @@ calendar_update_state() {
 
     done
 
+    
+
     # -------------------------------------------------------------------------
     # Next event summary.
     #
     # The first event returned by Google is the next chronological event.
     # -------------------------------------------------------------------------
+
+    
 
     local first_event
     local next_start
@@ -279,6 +294,10 @@ calendar_update_state() {
         next_calendar \
         next_all_day <<<"$first_event"
 
+    sw_state_set "next_header" "----------"
+    sw_state_set "next_header.label" "$(sw_translate "Next event")"
+    sw_state_set "next_header.order" "4"    
+
     if [[ "$next_all_day" == "true" ]]; then
 
         sw_state_set \
@@ -288,6 +307,8 @@ calendar_update_state() {
         sw_state_set \
             "next_event.label" \
             "$(sw_translate "All day")"
+
+        sw_state_set "next_event.order" "5"        
 
     else
 
@@ -452,8 +473,9 @@ sw_module_run() {
 
     sw_state_load
 
+    #caldav_collect
+
     gcal_collect
-    caldav_collect
 
     CALENDAR_EVENTS=(
         "${GCAL_EVENTS[@]}"
@@ -473,3 +495,4 @@ sw_module_run() {
 
     calendar_report
 }
+

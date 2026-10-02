@@ -152,16 +152,16 @@ clamav_update_state() {
     sw_state_set "module.order" "$MODULE_ORDER"
 
     sw_state_set "infected" "${CLAMAV_INFECTED}"
-    sw_state_set "infected.label" "Infecciones"
+    sw_state_set "infected.label" "$(sw_translate "Infections")"
 
     sw_state_set "files_scanned" "${CLAMAV_FILES_SCANNED}"
-    sw_state_set "files_scanned.label" "Archivos escaneados"
+    sw_state_set "files_scanned.label" "$(sw_translate "Scanned files")"
 
     sw_state_set "data_scanned" "${CLAMAV_DATA_SCANNED}"
-    sw_state_set "data_scanned.label" "Datos escaneados"
+    sw_state_set "data_scanned.label" "$(sw_translate "Scanned data")"
 
     sw_state_set "last_scan" "$(date -d "@${CLAMAV_LOG_MTIME}" '+%Y-%m-%d %H:%M' 2>/dev/null)"
-    sw_state_set "last_scan.label" "Última corrida"
+    sw_state_set "last_scan.label" "$(sw_translate "Last run")"
 
 }
 

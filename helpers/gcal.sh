@@ -37,29 +37,7 @@ GCAL_ERROR=""
 # Functions
 # -----------------------------------------------------------------------------
 
-gcal_collect() {
-
-    GCAL_STATUS="${SW_STATUS_UNKNOWN}"
-    GCAL_ERROR=""
-    GCAL_EVENTS=()
-    GCAL_EVENT_COUNT=0
-
-    # -------------------------------------------------------------------------
-    # Validate configuration
-    # -------------------------------------------------------------------------
-
-    if [[ -z "$GCAL_CLIENT_ID" ||
-        -z "$GCAL_CLIENT_SECRET" ||
-        -z "$GCAL_TOKEN" ]]; then
-
-        GCAL_ERROR="Google Calendar credentials are not configured"
-        return 1
-
-    fi
-
-    # -------------------------------------------------------------------------
-    # Obtain a fresh access token
-    # -------------------------------------------------------------------------
+gcal_get_access_token() {
 
     local response
     local access_token
@@ -83,20 +61,192 @@ gcal_collect() {
 
     if [[ -z "$access_token" ]]; then
 
-        GCAL_ERROR="$(jq -r '.error_description // .error // "Unable to obtain access token"' <<<"$response")"
+        GCAL_ERROR="$(
+            jq -r '.error_description // .error // "Unable to obtain access token"' \
+                <<<"$response"
+        )"
+
         return 1
+    fi
+
+    printf '%s\n' "$access_token"
+}
+
+gcal_sync_calendars() {
+
+    local access_token="$1"
+    local config_file="${CONFIG_DIR}/gcal.conf"
+    local response
+    local tmp_file
+    local calendar_id
+    local calendar_name
+    local enabled
+
+    response="$(
+        curl -fsS \
+            --max-time 15 \
+            -G \
+            "https://www.googleapis.com/calendar/v3/users/me/calendarList" \
+            -H "Authorization: Bearer ${access_token}" \
+            -H "Accept: application/json"
+    )" || return 1
+
+    if ! jq -e '.items' >/dev/null 2>&1 <<<"$response"; then
+        return 1
+    fi
+
+    mkdir -p "${CONFIG_DIR}" || return 1
+
+    tmp_file="$(mktemp)" || return 1
+
+    while IFS=$'\t' read -r calendar_id calendar_name; do
+
+        [[ -n "$calendar_id" ]] || continue
+
+        enabled="true"
+
+        if [[ -f "$config_file" ]]; then
+
+            enabled="$(
+                awk \
+                    -F= \
+                    -v id="$calendar_id" \
+                    '$1 == id {
+                        print $2
+                        found=1
+                        exit
+                    }
+                    END {
+                        if (!found)
+                            exit 1
+                    }' \
+                    "$config_file"
+            )" || enabled="true"
+
+        fi
+
+        printf '# %s\n' "$calendar_name" >>"$tmp_file"
+        printf '%s=%s\n\n' "$calendar_id" "$enabled" >>"$tmp_file"
+
+    done < <(
+        jq -r '
+            .items[] |
+            [
+                .id,
+                (.summary // .summaryOverride // "(No title)")
+            ] |
+            @tsv
+        ' <<<"$response"
+    )
+
+    # Keep calendars that are already configured but are no longer returned
+    # by Google.
+    if [[ -f "$config_file" ]]; then
+
+        while IFS= read -r line; do
+
+            [[ -n "$line" ]] || continue
+            [[ "$line" == \#* ]] && continue
+
+            IFS='=' read -r calendar_id enabled <<<"$line"
+
+            calendar_id="${line%%=*}"
+
+            if ! awk \
+                -F= \
+                -v id="$calendar_id" \
+                '$1 == id {
+                    found=1
+                    exit
+                }
+                END {
+                    exit !found
+                }' \
+                "$tmp_file"; then
+
+                # Preserve the existing entry and its comment.
+                previous_comment="$(
+                    awk \
+                        -v id="$calendar_id" '
+                            found && /^#/ {
+                                print
+                                exit
+                            }
+                            $0 ~ "^" id "=" {
+                                found=1
+                            }
+                        ' \
+                        "$config_file"
+                )"
+
+                [[ -n "$previous_comment" ]] &&
+                    printf '%s\n' "$previous_comment" >>"$tmp_file"
+
+                printf '%s\n\n' "$line" >>"$tmp_file"
+
+            fi
+
+        done <"$config_file"
 
     fi
 
-    # -------------------------------------------------------------------------
-    # Build time range.
-    #
-    # date uses the system timezone. The resulting ISO 8601 offsets are
-    # accepted directly by Google Calendar.
-    # -------------------------------------------------------------------------
+    mv "$tmp_file" "$config_file" || {
+        rm -f "$tmp_file"
+        return 1
+    }
+
+    return 0
+}
+
+gcal_get_enabled_calendars() {
+
+    local config_file="${CONFIG_DIR}/gcal.conf"
+    local line
+    local calendar_id
+    local enabled
+
+    [[ -f "$config_file" ]] || return 1
+
+    while IFS= read -r line; do
+
+        # Ignore empty lines.
+        [[ -n "$line" ]] || continue
+
+        # Ignore comments. A comment starts with "# " so that calendar IDs
+        # beginning with "#" remain valid.
+        [[ "$line" == "# "* ]] && continue
+
+        IFS='=' read -r calendar_id enabled <<<"$line"
+
+        [[ -n "$calendar_id" ]] || continue
+        [[ "$enabled" == "true" ]] || continue
+
+        printf '%s\n' "$calendar_id"
+
+    done <"$config_file"
+
+    return 0
+}
+
+gcal_collect_events() {
+
+    local access_token="$1"
+    local calendar_id="$2"
 
     local time_min
     local time_max
+    local calendar_response
+
+    # -------------------------------------------------------------------------
+    # Validate arguments
+    # -------------------------------------------------------------------------
+
+    [[ -n "$access_token" ]] || return 1
+    [[ -n "$calendar_id" ]] || return 1
+
+    # -------------------------------------------------------------------------
+    # Build time range.
+    # -------------------------------------------------------------------------
 
     time_min="$(date --iso-8601=seconds)"
     time_max="$(date -d 'tomorrow 23:59:59' --iso-8601=seconds)"
@@ -105,34 +255,31 @@ gcal_collect() {
     # Query Google Calendar
     # -------------------------------------------------------------------------
 
-    local calendar_response
+    local encoded_calendar_id
+
+encoded_calendar_id="$(
+    jq -rn --arg value "$calendar_id" '$value | @uri'
+)"
 
     calendar_response="$(
         curl -fsS \
             --max-time 15 \
             -G \
-            "https://www.googleapis.com/calendar/v3/calendars/primary/events" \
+            "https://www.googleapis.com/calendar/v3/calendars/${encoded_calendar_id}/events" \
             -H "Authorization: Bearer ${access_token}" \
             --data-urlencode "timeMin=${time_min}" \
             --data-urlencode "timeMax=${time_max}" \
             --data-urlencode "maxResults=${GCAL_MAX_EVENTS}" \
             --data-urlencode "singleEvents=true" \
             --data-urlencode "orderBy=startTime"
-    )" || {
-
-        GCAL_ERROR="Unable to query Google Calendar"
-        return 1
-    }
+    )" || return 1
 
     # -------------------------------------------------------------------------
-    # Check API response.
+    # Validate API response.
     # -------------------------------------------------------------------------
 
     if ! jq -e '.items' >/dev/null 2>&1 <<<"$calendar_response"; then
-
-        GCAL_ERROR="$(jq -r '.error.message // "Invalid Google Calendar response"' <<<"$calendar_response")"
         return 1
-
     fi
 
     # -------------------------------------------------------------------------
@@ -141,9 +288,6 @@ gcal_collect() {
     # Format:
     #
     #   timestamp<TAB>end_timestamp<TAB>title<TAB>calendar<TAB>all_day
-    #
-    # Calendar/backend information is kept internally so another backend can
-    # later feed the same presentation layer.
     # -------------------------------------------------------------------------
 
     while IFS=$'\t' read -r start end title calendar all_day; do
@@ -175,6 +319,72 @@ gcal_collect() {
             @tsv
         ' <<<"$calendar_response"
     )
+
+    return 0
+}
+
+gcal_collect() {
+
+    GCAL_STATUS="${SW_STATUS_UNKNOWN}"
+    GCAL_ERROR=""
+    GCAL_EVENTS=()
+    GCAL_EVENT_COUNT=0
+
+    # -------------------------------------------------------------------------
+    # Validate configuration
+    # -------------------------------------------------------------------------
+
+    if [[ -z "$GCAL_CLIENT_ID" ||
+        -z "$GCAL_CLIENT_SECRET" ||
+        -z "$GCAL_TOKEN" ]]; then
+
+        GCAL_ERROR="Google Calendar credentials are not configured"
+        return 1
+
+    fi
+
+    # -------------------------------------------------------------------------
+    # Obtain a fresh access token
+    # -------------------------------------------------------------------------
+
+    local access_token
+
+    access_token="$(gcal_get_access_token)" || return 1
+
+    # -------------------------------------------------------------------------
+    # Synchronize calendar configuration
+    # -------------------------------------------------------------------------
+
+    gcal_sync_calendars "$access_token" || {
+
+        GCAL_ERROR="Unable to synchronize Google Calendar configuration"
+        return 1
+    }
+
+    
+gcal_get_enabled_calendars
+
+    # -------------------------------------------------------------------------
+    # Collect events from enabled calendars.
+    # -------------------------------------------------------------------------
+
+    local calendar_id
+
+    while IFS= read -r calendar_id; do
+
+        [[ -n "$calendar_id" ]] || continue
+
+        gcal_collect_events "$access_token" "$calendar_id" || {
+
+            GCAL_ERROR="Unable to query Google Calendar"
+            return 1
+        }
+
+    done < <(gcal_get_enabled_calendars)
+
+    # -------------------------------------------------------------------------
+    # Update module state.
+    # -------------------------------------------------------------------------
 
     GCAL_EVENT_COUNT="${#GCAL_EVENTS[@]}"
     GCAL_STATUS="${SW_STATUS_OK}"
