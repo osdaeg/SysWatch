@@ -61,9 +61,9 @@ smn_forecast_collect() {
     mtime="$(stat -c %Y "${SMN_FORECAST_FILE}" 2>/dev/null)"
 
     local age_minutes
-    age_minutes=$(( ( $(date +%s) - mtime ) / 60 ))
+    age_minutes=$((($(date +%s) - mtime) / 60))
 
-    if (( age_minutes > SMN_FORECAST_MAX_AGE_MINUTES )); then
+    if ((age_minutes > SMN_FORECAST_MAX_AGE_MINUTES)); then
 
         sw_log_warning \
             "${MODULE_NAME}" \
@@ -75,7 +75,7 @@ smn_forecast_collect() {
 
     SMN_FORECAST_JSON="$(cat "${SMN_FORECAST_FILE}" 2>/dev/null)"
 
-    if [[ -z "${SMN_FORECAST_JSON}" ]] || ! jq empty >/dev/null 2>&1 <<< "${SMN_FORECAST_JSON}"; then
+    if [[ -z "${SMN_FORECAST_JSON}" ]] || ! jq empty >/dev/null 2>&1 <<<"${SMN_FORECAST_JSON}"; then
 
         sw_log_warning \
             "${MODULE_NAME}" \
@@ -91,28 +91,28 @@ smn_forecast_day_summary() {
 
     local idx="$1"
     local day
-    day="$(jq -c ".forecast[${idx}]" <<< "${SMN_FORECAST_JSON}")"
+    day="$(jq -c ".forecast[${idx}]" <<<"${SMN_FORECAST_JSON}")"
 
     [[ -z "${day}" || "${day}" == "null" ]] && return 1
 
     local date_raw
-    date_raw="$(jq -r '.date // ""' <<< "${day}")"
+    date_raw="$(jq -r '.date // ""' <<<"${day}")"
 
     local temp_max temp_min
-    temp_max="$(jq -r '.temp_max // "?"' <<< "${day}")"
-    temp_min="$(jq -r '.temp_min // "?"' <<< "${day}")"
+    temp_max="$(jq -r '.temp_max // "?"' <<<"${day}")"
+    temp_min="$(jq -r '.temp_min // "?"' <<<"${day}")"
 
     local condition
-    condition="$(jq -r '.afternoon.weather.description // .morning.weather.description // "N/A"' <<< "${day}")"
+    condition="$(jq -r '.afternoon.weather.description // .morning.weather.description // "N/A"' <<<"${day}")"
 
-    echo "Condicion: ${condition}" >> ~/scripts/syswatch/smn_extendido.txt
+    echo "Condicion: ${condition}" >>~/scripts/syswatch/smn_extendido.txt
 
     local rain_prob
     rain_prob="$(
         jq -r '
             [.early_morning, .morning, .afternoon, .night][]?
             | .rain_prob_range[1]? // .rain_prob_range[0]? // 0
-        ' <<< "${day}" 2>/dev/null | sort -rn | head -n 1
+        ' <<<"${day}" 2>/dev/null | sort -rn | head -n 1
     )"
 
     local date_label
@@ -141,7 +141,7 @@ smn_forecast_update_state() {
     local count=0
     local color=true
 
-    for (( i=0; i<SMN_FORECAST_DAYS; i++ )); do
+    for ((i = 0; i < SMN_FORECAST_DAYS; i++)); do
 
         summary="$(smn_forecast_day_summary "${i}")"
 
@@ -158,7 +158,7 @@ smn_forecast_update_state() {
         fi
 
         sw_state_set "day${i}" "${summary}"
-        sw_state_set "day${i}.label" "Día $(( i + 1 ))"
+        sw_state_set "day${i}.label" "Día $((i + 1))"
         sw_state_set "day${i}.order" "${order}"
 
         if [ "${color}" == "true" ]; then
@@ -169,8 +169,8 @@ smn_forecast_update_state() {
             color=true
         fi
 
-        (( order += 10 ))
-        count=$(( count + 1 ))
+        ((order += 10))
+        count=$((count + 1))
 
     done
 
@@ -183,11 +183,11 @@ smn_forecast_update_state() {
         unset "SW_STATE[day${i}.label]"
         unset "SW_STATE[day${i}.order]"
 
-        i=$(( i + 1 ))
+        i=$((i + 1))
 
     done
 
-    if (( count == 0 )); then
+    if ((count == 0)); then
 
         sw_state_set "detail" "Sin datos de pronóstico"
         sw_state_set "detail.label" "Estado"
@@ -211,7 +211,7 @@ sw_module_run() {
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
     fi
-    
+
     sw_state_load
 
     smn_forecast_collect || return 1

@@ -20,7 +20,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-1260}
 MODULE_ORDER=${MODULE_ORDER:-51}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
@@ -48,14 +47,13 @@ systemd_collect() {
 
     SYSTEMD_FAILED_UNITS=()
 
-    while read -r unit
-    do
+    while read -r unit; do
 
         [[ -n "${unit}" ]] && SYSTEMD_FAILED_UNITS+=("${unit}")
 
     done < <(
         systemctl --failed --plain --no-legend 2>/dev/null |
-        awk '{ print $1 }'
+            awk '{ print $1 }'
     )
 
 }
@@ -64,7 +62,7 @@ systemd_analyze() {
 
     SYSTEMD_STATUS="${SW_STATUS_OK}"
 
-    if (( ${#SYSTEMD_FAILED_UNITS[@]} > 0 )); then
+    if ((${#SYSTEMD_FAILED_UNITS[@]} > 0)); then
 
         SYSTEMD_STATUS="${SW_STATUS_CRITICAL}"
 
@@ -92,9 +90,12 @@ systemd_update_state() {
 
     local units_joined=""
 
-    if (( ${#SYSTEMD_FAILED_UNITS[@]} > 0 )); then
+    if ((${#SYSTEMD_FAILED_UNITS[@]} > 0)); then
 
-        units_joined="$(IFS=', '; printf '%s' "${SYSTEMD_FAILED_UNITS[*]}")"
+        units_joined="$(
+            IFS=', '
+            printf '%s' "${SYSTEMD_FAILED_UNITS[*]}"
+        )"
 
     fi
 
@@ -109,7 +110,7 @@ systemd_update_state() {
 
     else
 
-        sw_state_set "failed_units.hidden" "false"    
+        sw_state_set "failed_units.hidden" "false"
 
     fi
 
@@ -117,7 +118,7 @@ systemd_update_state() {
 
 systemd_report() {
 
-    if (( ${#SYSTEMD_FAILED_UNITS[@]} > 0 )); then
+    if ((${#SYSTEMD_FAILED_UNITS[@]} > 0)); then
 
         sw_log_info \
             "${MODULE_NAME}" \

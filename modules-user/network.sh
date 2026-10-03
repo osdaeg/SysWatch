@@ -20,7 +20,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-120}
 MODULE_ORDER=${MODULE_ORDER:-30}
 MODULE_REMOTE=${MODULE_REMOTE:-"pepito"}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -102,9 +101,9 @@ network_ipv4() {
 
     local iface="$1"
 
-    ip -4 -o addr show dev "${iface}" \
-        | awk '{print $4}' \
-        | cut -d/ -f1
+    ip -4 -o addr show dev "${iface}" |
+        awk '{print $4}' |
+        cut -d/ -f1
 
 }
 
@@ -133,7 +132,7 @@ network_discover_interfaces() {
     mapfile -t NETWORK_INTERFACES < <(
 
         ip -o link show |
-        awk -F': ' '
+            awk -F': ' '
 
             {
                 sub(/@.*/, "", $2)
@@ -181,8 +180,7 @@ network_read_interfaces() {
 
     NETWORK_MTU=()
 
-    for iface in "${NETWORK_INTERFACES[@]}"
-    do
+    for iface in "${NETWORK_INTERFACES[@]}"; do
 
         #
         # Identification
@@ -285,9 +283,9 @@ network_calculate_rate() {
 
     if [[ -n "$prev_time" ]]; then
 
-        elapsed=$(( now - prev_time ))
+        elapsed=$((now - prev_time))
 
-        (( elapsed < 1 )) && elapsed=1
+        ((elapsed < 1)) && elapsed=1
 
         # The interface's byte counters live in the kernel and reset to 0
         # on every reboot, but _internal.prev_* is whatever was persisted
@@ -296,7 +294,7 @@ network_calculate_rate() {
         # (reboot, or the interface was reset) -- there's no valid rate to
         # compute from this pair of samples, so report 0 instead of a
         # nonsense negative number.
-        if (( NETWORK_RX_BYTES[$i] < prev_rx || NETWORK_TX_BYTES[$i] < prev_tx )); then
+        if ((NETWORK_RX_BYTES[$i] < prev_rx || NETWORK_TX_BYTES[$i] < prev_tx)); then
 
             NETWORK_RX_RATE[$i]=0
             NETWORK_TX_RATE[$i]=0
@@ -335,48 +333,48 @@ network_analyze() {
 
     local i
 
-    for (( i=0; i<NETWORK_DEVICE_COUNT; i++ )); do
+    for ((i = 0; i < NETWORK_DEVICE_COUNT; i++)); do
 
         NETWORK_STATUS[$i]="${SW_STATUS_OK}"
 
         #
-# Link down
-#
+        # Link down
+        #
 
-if [[ "${NETWORK_STATE[$i]}" != "up" ]]; then
+        if [[ "${NETWORK_STATE[$i]}" != "up" ]]; then
 
-    if [[ -n "${NETWORK_ACTIVE_INTERFACE}" ]] &&
-       [[ "${NETWORK_INTERFACES[$i]}" != "${NETWORK_ACTIVE_INTERFACE}" ]]; then
+            if [[ -n "${NETWORK_ACTIVE_INTERFACE}" ]] &&
+                [[ "${NETWORK_INTERFACES[$i]}" != "${NETWORK_ACTIVE_INTERFACE}" ]]; then
 
-        NETWORK_STATUS[$i]="${SW_STATUS_INFO}"
+                NETWORK_STATUS[$i]="${SW_STATUS_INFO}"
 
-    else
+            else
 
-        NETWORK_STATUS[$i]="${SW_STATUS_CRITICAL}"
+                NETWORK_STATUS[$i]="${SW_STATUS_CRITICAL}"
 
-    fi
+            fi
 
-fi
+        fi
 
         #
-# Carrier
-#
+        # Carrier
+        #
 
-if [[ -n "${NETWORK_CARRIER[$i]}" ]] &&
-   [[ "${NETWORK_CARRIER[$i]}" == "0" ]]; then
+        if [[ -n "${NETWORK_CARRIER[$i]}" ]] &&
+            [[ "${NETWORK_CARRIER[$i]}" == "0" ]]; then
 
-    if [[ -n "${NETWORK_ACTIVE_INTERFACE}" ]] &&
-       [[ "${NETWORK_INTERFACES[$i]}" != "${NETWORK_ACTIVE_INTERFACE}" ]]; then
+            if [[ -n "${NETWORK_ACTIVE_INTERFACE}" ]] &&
+                [[ "${NETWORK_INTERFACES[$i]}" != "${NETWORK_ACTIVE_INTERFACE}" ]]; then
 
-        NETWORK_STATUS[$i]="${SW_STATUS_INFO}"
+                NETWORK_STATUS[$i]="${SW_STATUS_INFO}"
 
-    else
+            else
 
-        NETWORK_STATUS[$i]="${SW_STATUS_CRITICAL}"
+                NETWORK_STATUS[$i]="${SW_STATUS_CRITICAL}"
 
-    fi
+            fi
 
-fi
+        fi
 
         #
         # Link speed
@@ -384,8 +382,8 @@ fi
 
         if [[ -n "${NETWORK_SPEED[$i]}" ]]; then
 
-            if (( NETWORK_SPEED[$i] < 100 )) &&
-               [[ "${NETWORK_STATUS[$i]}" == "${SW_STATUS_OK}" ]]; then
+            if ((NETWORK_SPEED[$i] < 100)) &&
+                [[ "${NETWORK_STATUS[$i]}" == "${SW_STATUS_OK}" ]]; then
 
                 NETWORK_STATUS[$i]="${SW_STATUS_WARNING}"
 
@@ -398,7 +396,7 @@ fi
         #
 
         if [[ -n "${NETWORK_RX_ERRORS[$i]}" ]] &&
-           (( NETWORK_RX_ERRORS[$i] > 0 )); then
+            ((NETWORK_RX_ERRORS[$i] > 0)); then
 
             NETWORK_STATUS[$i]="${SW_STATUS_WARNING}"
 
@@ -409,7 +407,7 @@ fi
         #
 
         if [[ -n "${NETWORK_TX_ERRORS[$i]}" ]] &&
-           (( NETWORK_TX_ERRORS[$i] > 0 )); then
+            ((NETWORK_TX_ERRORS[$i] > 0)); then
 
             NETWORK_STATUS[$i]="${SW_STATUS_WARNING}"
 
@@ -421,16 +419,16 @@ fi
 
         case "${NETWORK_STATUS[$i]}" in
 
-            "${SW_STATUS_CRITICAL}")
+        "${SW_STATUS_CRITICAL}")
 
-                NETWORK_GLOBAL_STATUS="${SW_STATUS_CRITICAL}"
-                ;;
+            NETWORK_GLOBAL_STATUS="${SW_STATUS_CRITICAL}"
+            ;;
 
-            "${SW_STATUS_WARNING}")
+        "${SW_STATUS_WARNING}")
 
-                [[ "${NETWORK_GLOBAL_STATUS}" == "${SW_STATUS_OK}" ]] &&
-                    NETWORK_GLOBAL_STATUS="${SW_STATUS_WARNING}"
-                ;;
+            [[ "${NETWORK_GLOBAL_STATUS}" == "${SW_STATUS_OK}" ]] &&
+                NETWORK_GLOBAL_STATUS="${SW_STATUS_WARNING}"
+            ;;
 
         esac
 
@@ -447,7 +445,7 @@ network_update_state() {
 
     now=$(date +%s)
 
-    for (( i=0; i<NETWORK_DEVICE_COUNT; i++ )); do
+    for ((i = 0; i < NETWORK_DEVICE_COUNT; i++)); do
 
         sw_state_use "${NETWORK_INTERFACES[$i]}"
 
@@ -520,13 +518,13 @@ network_update_state() {
         sw_state_set "rx_rate.label" "$(sw_translate "Download")"
         sw_state_set "rx_rate.widget" "line"
         sw_state_set "rx_rate.order" "20"
-        sw_state_set "rx_rate.scale"  "zero"
+        sw_state_set "rx_rate.scale" "zero"
 
         sw_state_set "tx_rate" "${NETWORK_TX_RATE[$i]}"
         sw_state_set "tx_rate.label" "$(sw_translate "Upload")"
         sw_state_set "tx_rate.widget" "line"
         sw_state_set "tx_rate.order" "30"
-        sw_state_set "tx_rate.scale"  "zero"
+        sw_state_set "tx_rate.scale" "zero"
 
         #
         # ---------------------------------------------------------------------
@@ -623,7 +621,7 @@ network_report() {
     local summary=""
     local i
 
-    for (( i=0; i<NETWORK_DEVICE_COUNT; i++ )); do
+    for ((i = 0; i < NETWORK_DEVICE_COUNT; i++)); do
 
         [[ -n "${summary}" ]] && summary+=", "
 
@@ -638,7 +636,6 @@ network_report() {
 }
 
 sw_module_run() {
-
 
     network_collect || return 1
 

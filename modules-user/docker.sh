@@ -28,7 +28,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-240}
 MODULE_ORDER=${MODULE_ORDER:-60}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -138,8 +137,7 @@ docker_discover() {
 
     [[ -z "${ids}" ]] && return 0
 
-    while IFS='|' read -r name policy health running_state
-    do
+    while IFS='|' read -r name policy health running_state; do
 
         if [[ -z "${name}" ]]; then continue; fi
 
@@ -185,8 +183,7 @@ docker_analyze() {
 
     local i
 
-    for (( i=0; i<${#DOCKER_KEYS[@]}; i++ ))
-    do
+    for ((i = 0; i < ${#DOCKER_KEYS[@]}; i++)); do
 
         DOCKER_STATUS[$i]="${SW_STATUS_OK}"
 
@@ -222,7 +219,7 @@ docker_update_state() {
     local i
     local key
 
-    for (( i=0; i<${#DOCKER_KEYS[@]}; i++ )); do
+    for ((i = 0; i < ${#DOCKER_KEYS[@]}; i++)); do
 
         key="${DOCKER_KEYS[$i]}"
 
@@ -272,7 +269,7 @@ docker_report() {
     local summary=""
     local signal
 
-    for (( i=0; i<${#DOCKER_KEYS[@]}; i++ )); do
+    for ((i = 0; i < ${#DOCKER_KEYS[@]}; i++)); do
 
         signal="${DOCKER_HEALTH[$i]}"
         [[ "${signal}" == "none" ]] && signal="${DOCKER_RUNNING_STATE[$i]}"
@@ -296,7 +293,7 @@ docker_within_startup_grace() {
 
     [[ "${uptime_seconds}" =~ ^[0-9]+$ ]] || return 1
 
-    (( uptime_seconds < DOCKER_STARTUP_GRACE_SECONDS ))
+    ((uptime_seconds < DOCKER_STARTUP_GRACE_SECONDS))
 
 }
 

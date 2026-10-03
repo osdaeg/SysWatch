@@ -13,7 +13,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-300}
 MODULE_ORDER=${MODULE_ORDER:-1000}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Thresholds
 # -----------------------------------------------------------------------------
@@ -35,7 +34,6 @@ DISK_PROCESS=()
 DISK_STATS=()
 DISK_STATUS="OK"
 
-
 # -----------------------------------------------------------------------------
 # Trim command
 # -----------------------------------------------------------------------------
@@ -44,14 +42,13 @@ disk_trim_command() {
 
     local cmd="$1"
 
-    if (( ${#cmd} > 70 )); then
+    if ((${#cmd} > 70)); then
         printf "%.67s..." "$cmd"
     else
         printf "%s" "$cmd"
     fi
 
 }
-
 
 # -----------------------------------------------------------------------------
 # Collect top writing processes
@@ -74,19 +71,18 @@ disk_collect_processes() {
     done < <(
 
         LC_ALL=C pidstat -d 1 5 |
-        awk '
+            awk '
         $1=="Average:" &&
         $2+0==$2 &&
         $5>0 {
             print $5, $3
         }' |
-        sort -nr |
-        head -8
+            sort -nr |
+            head -8
 
     )
 
 }
-
 
 # -----------------------------------------------------------------------------
 # Collect physical disk statistics
@@ -106,7 +102,7 @@ disk_collect_stats() {
 
     stats="$(
         LC_ALL=C iostat -dx 1 2 2>/dev/null |
-        awk '
+            awk '
         $1=="Device" {
 
             sample++
@@ -161,10 +157,9 @@ disk_collect_stats() {
             "$iops"
         )
 
-    done <<< "$stats"
+    done <<<"$stats"
 
 }
-
 
 # -----------------------------------------------------------------------------
 # Evaluate disk status
@@ -174,7 +169,7 @@ disk_evaluate_status() {
 
     DISK_STATUS="OK"
 
-    if (( ${#DISK_STATS[@]} == 0 )); then
+    if ((${#DISK_STATS[@]} == 0)); then
 
         DISK_STATUS="WARNING"
 
@@ -186,50 +181,47 @@ disk_evaluate_status() {
 
     fi
 
-    for ((i=0; i<${#DISK_STATS[@]}; i+=5)); do
+    for ((i = 0; i < ${#DISK_STATS[@]}; i += 5)); do
 
         local device="${DISK_STATS[i]}"
-        local util="${DISK_STATS[i+1]}"
-        local await="${DISK_STATS[i+2]}"
-        local iops="${DISK_STATS[i+4]}"
+        local util="${DISK_STATS[i + 1]}"
+        local await="${DISK_STATS[i + 2]}"
+        local iops="${DISK_STATS[i + 4]}"
 
         # CRITICAL ------------------------------------------------------------
 
-if awk \
-    -v util="$util" \
-    -v await="$await" \
-    -v iops="$iops" \
-    -v util_limit="$DISK_UTIL_CRITICAL" \
-    -v await_limit="$DISK_AWAIT_CRITICAL" \
-    -v min_iops="$DISK_AWAIT_MIN_IOPS" \
-    'BEGIN {
+        if awk \
+            -v util="$util" \
+            -v await="$await" \
+            -v iops="$iops" \
+            -v util_limit="$DISK_UTIL_CRITICAL" \
+            -v await_limit="$DISK_AWAIT_CRITICAL" \
+            -v min_iops="$DISK_AWAIT_MIN_IOPS" \
+            'BEGIN {
         exit !(util >= util_limit || (await >= await_limit && iops >= min_iops))
-    }'
-then
-    DISK_STATUS="CRITICAL"
-    continue
-fi
+    }'; then
+            DISK_STATUS="CRITICAL"
+            continue
+        fi
 
         # WARNING -------------------------------------------------------------
 
-if [[ "$DISK_STATUS" != "CRITICAL" ]] &&
-   awk \
-    -v util="$util" \
-    -v await="$await" \
-    -v iops="$iops" \
-    -v util_limit="$DISK_UTIL_WARNING" \
-    -v await_limit="$DISK_AWAIT_WARNING" \
-    -v min_iops="$DISK_AWAIT_MIN_IOPS" \
-    'BEGIN {
+        if [[ "$DISK_STATUS" != "CRITICAL" ]] &&
+            awk \
+                -v util="$util" \
+                -v await="$await" \
+                -v iops="$iops" \
+                -v util_limit="$DISK_UTIL_WARNING" \
+                -v await_limit="$DISK_AWAIT_WARNING" \
+                -v min_iops="$DISK_AWAIT_MIN_IOPS" \
+                'BEGIN {
         exit !(util >= util_limit || (await >= await_limit && iops >= min_iops))
-    }'
-then
-    DISK_STATUS="WARNING"
-fi
+    }'; then
+            DISK_STATUS="WARNING"
+        fi
     done
 
 }
-
 
 # -----------------------------------------------------------------------------
 # Update SysWatch state
@@ -256,12 +248,12 @@ disk_update_state() {
     # Physical disks
     # -------------------------------------------------------------------------
 
-    for ((i=0; i<${#DISK_STATS[@]}; i+=5)); do
+    for ((i = 0; i < ${#DISK_STATS[@]}; i += 5)); do
 
         local device="${DISK_STATS[i]}"
-        local util="${DISK_STATS[i+1]}"
-        local await="${DISK_STATS[i+2]}"
-        local aqusz="${DISK_STATS[i+3]}"
+        local util="${DISK_STATS[i + 1]}"
+        local await="${DISK_STATS[i + 2]}"
+        local aqusz="${DISK_STATS[i + 3]}"
 
         sw_state_set \
             "disk_${index}" \
@@ -269,7 +261,7 @@ disk_update_state() {
 
         sw_state_set \
             "disk_${index}.label" \
-            "${device} · Utilización"
+            "${device} · $(sw_translate "Utilization")"
 
         sw_state_set \
             "disk_${index}.unit" \
@@ -279,7 +271,7 @@ disk_update_state() {
             "disk_${index}.order" \
             "$order"
 
-        ((order+=10))
+        ((order += 10))
 
         sw_state_set \
             "disk_${index}_await" \
@@ -287,7 +279,7 @@ disk_update_state() {
 
         sw_state_set \
             "disk_${index}_await.label" \
-            "${device} · Await"
+            "${device} · $(sw_translate "Await")"
 
         sw_state_set \
             "disk_${index}_await.unit" \
@@ -297,7 +289,7 @@ disk_update_state() {
             "disk_${index}_await.order" \
             "$order"
 
-        ((order+=10))
+        ((order += 10))
 
         sw_state_set \
             "disk_${index}_queue" \
@@ -305,7 +297,7 @@ disk_update_state() {
 
         sw_state_set \
             "disk_${index}_queue.label" \
-            "${device} · Cola"
+            "${device} · $(sw_translate "Queue")"
 
         sw_state_set \
             "disk_${index}_queue.unit" \
@@ -315,7 +307,7 @@ disk_update_state() {
             "disk_${index}_queue.order" \
             "$order"
 
-        ((order+=10))
+        ((order += 10))
         ((index++))
 
     done
@@ -324,12 +316,19 @@ disk_update_state() {
     # Top writing processes
     # -------------------------------------------------------------------------
 
+    ((order += 10))
+
+    sw_state_set "process_header" "-------------------------"
+    sw_state_set "process_header.label" "$(sw_translate "Processes")"
+    sw_state_set "process_header.order" "${order}"
+    sw_state_set "process_header.color" "blue"
+
     index=1
 
-    for ((i=0; i<${#DISK_PROCESS[@]}; i+=2)); do
+    for ((i = 0; i < ${#DISK_PROCESS[@]}; i += 2)); do
 
         local command="${DISK_PROCESS[i]}"
-        local write="${DISK_PROCESS[i+1]}"
+        local write="${DISK_PROCESS[i + 1]}"
 
         sw_state_set \
             "process_${index}" \
@@ -348,12 +347,11 @@ disk_update_state() {
             "$process_order"
 
         ((index++))
-        ((process_order+=10))
+        ((process_order += 10))
 
     done
 
 }
-
 
 # -----------------------------------------------------------------------------
 # Report
@@ -361,15 +359,14 @@ disk_update_state() {
 
 disk_report() {
 
-    local process_count=$(( ${#DISK_PROCESS[@]} / 2 ))
-    local device_count=$(( ${#DISK_STATS[@]} / 5 ))
+    local process_count=$((${#DISK_PROCESS[@]} / 2))
+    local device_count=$((${#DISK_STATS[@]} / 5))
 
     sw_log_info \
         "${MODULE_NAME}" \
         "Status=${DISK_STATUS}, devices=${device_count}, top_writers=${process_count}"
 
 }
-
 
 # -----------------------------------------------------------------------------
 # Module entry point

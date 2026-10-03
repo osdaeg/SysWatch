@@ -20,7 +20,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-240}
 MODULE_ORDER=${MODULE_ORDER:-20}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -52,13 +51,13 @@ memory_top() {
 
 print_memory_top() {
     local order=50
-    
-    for ((i=0; i<${#MEMORY_PROCESS[@]}; i+=3)); do
+
+    for ((i = 0; i < ${#MEMORY_PROCESS[@]}; i += 3)); do
         #echo -e "${MEMORY_PROCESS[i]}\t\t${MEMORY_PROCESS[i+2]}%"
-        sw_state_set "${MEMORY_PROCESS[i+1]}"  "${MEMORY_PROCESS[i+2]}"
-        sw_state_set "${MEMORY_PROCESS[i+1]}.label"  "${MEMORY_PROCESS[i+1]} (${MEMORY_PROCESS[i]})"
-        sw_state_set "${MEMORY_PROCESS[i+1]}.order" "$order"
-        sw_state_set "${MEMORY_PROCESS[i+1]}.unit" "%"
+        sw_state_set "${MEMORY_PROCESS[i + 1]}" "${MEMORY_PROCESS[i + 2]}"
+        sw_state_set "${MEMORY_PROCESS[i + 1]}.label" "${MEMORY_PROCESS[i + 1]} (${MEMORY_PROCESS[i]})"
+        sw_state_set "${MEMORY_PROCESS[i + 1]}.order" "$order"
+        sw_state_set "${MEMORY_PROCESS[i + 1]}.unit" "%"
         ((order += 10))
     done
 }
@@ -76,11 +75,11 @@ memory_collect() {
         awk '/^MemAvailable:/ {print $2}' /proc/meminfo
     )
 
-    MEMORY_TOTAL_MB=$(( total_kb / 1024 ))
-    MEMORY_AVAILABLE_MB=$(( available_kb / 1024 ))
-    MEMORY_USED_MB=$(( MEMORY_TOTAL_MB - MEMORY_AVAILABLE_MB ))
+    MEMORY_TOTAL_MB=$((total_kb / 1024))
+    MEMORY_AVAILABLE_MB=$((available_kb / 1024))
+    MEMORY_USED_MB=$((MEMORY_TOTAL_MB - MEMORY_AVAILABLE_MB))
 
-    MEMORY_USAGE=$(( MEMORY_USED_MB * 100 / MEMORY_TOTAL_MB ))
+    MEMORY_USAGE=$((MEMORY_USED_MB * 100 / MEMORY_TOTAL_MB))
 
 }
 
@@ -88,11 +87,11 @@ memory_analyze() {
 
     MEMORY_STATUS="${SW_STATUS_OK}"
 
-    if (( MEMORY_USAGE >= MEMORY_CRITICAL )); then
+    if ((MEMORY_USAGE >= MEMORY_CRITICAL)); then
 
         MEMORY_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif (( MEMORY_USAGE >= MEMORY_WARNING )); then
+    elif ((MEMORY_USAGE >= MEMORY_WARNING)); then
 
         MEMORY_STATUS="${SW_STATUS_WARNING}"
 
@@ -109,20 +108,20 @@ memory_update_state() {
     sw_state_set available_mb "${MEMORY_AVAILABLE_MB}"
 
     sw_state_set usage "${MEMORY_USAGE}"
-    
+
     # -------------------------------------------------------------------------
     # Module metadata
     # -------------------------------------------------------------------------
-    
+
     sw_state_set "module.label" "$(sw_translate "Memory")"
     sw_state_set "module.icon" "lucide/memory"
     sw_state_set "module.order" "$MODULE_ORDER"
-    
+
     sw_state_set "usage.widget" "gauge"
     sw_state_set "usage.unit" "%"
     sw_state_set "usage.order" "10"
     sw_state_set "usage.label" "$(sw_translate "Used")"
-    
+
     sw_state_set "total_mb.label" "$(sw_translate "Total")"
     sw_state_set "total_mb.order" "20"
     sw_state_set "used_mb.label" "$(sw_translate "Used")"
@@ -157,46 +156,44 @@ sw_module_run() {
     sw_state_save
 
     sw_state_clear
-    
-    (
-    sw_state_use "top_memory"
-    
-    
-    if [ "$MEMORY_USAGE" -gt 79 ]; then
-    
-        sw_state_reset
-    
-        sw_state_set module_version "${MODULE_VERSION}"
-        sw_state_set "module.label" "$(sw_translate "In-memory processes")"
-        sw_state_set "module.icon" "lucide/rows-4"
-        sw_state_set "module.order" "900"
-        
-        memory_top
-      
-        print_memory_top
-        
-        sw_state_set "status" "WARNING"
-        
-        if [ "$MEMORY_USAGE" -gt 94 ]; then
-            sw_state_set "status" "CRITICAL"
-        fi
-        
-        sw_state_save
-        
-    else
 
-        #sw_state_set "Estado"  " No hay aplicaciones con uso elevado de memoria: ${MEMORY_USAGE}%"
-        #sw_state_set "Estado.label"  "Estado:"
-        #sw_state_set "Estado.order" "20"
-        sw_state_delete
-    fi
-    
-    #sw_state_save
+    (
+        sw_state_use "top_memory"
+
+        if [ "$MEMORY_USAGE" -gt 79 ]; then
+
+            sw_state_reset
+
+            sw_state_set module_version "${MODULE_VERSION}"
+            sw_state_set "module.label" "$(sw_translate "In-memory processes")"
+            sw_state_set "module.icon" "lucide/rows-4"
+            sw_state_set "module.order" "900"
+
+            memory_top
+
+            print_memory_top
+
+            sw_state_set "status" "WARNING"
+
+            if [ "$MEMORY_USAGE" -gt 94 ]; then
+                sw_state_set "status" "CRITICAL"
+            fi
+
+            sw_state_save
+
+        else
+
+            #sw_state_set "Estado"  " No hay aplicaciones con uso elevado de memoria: ${MEMORY_USAGE}%"
+            #sw_state_set "Estado.label"  "Estado:"
+            #sw_state_set "Estado.order" "20"
+            sw_state_delete
+        fi
+
+        #sw_state_save
     )
 
-
     memory_report
-    
+
     sw_csv_append \
         "memory" \
         "used" \

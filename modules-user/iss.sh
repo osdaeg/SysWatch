@@ -23,7 +23,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-300}
 MODULE_ORDER=${MODULE_ORDER:-800}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -63,7 +62,6 @@ ISS_VISIBLE=false
 
 ISS_REMAINING_TEXT=""
 
-
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
@@ -78,7 +76,7 @@ iss_refresh_cache() {
 
     if ! sw_cache_is_expired \
         "iss.json" \
-        "$(( ISS_CACHE_HOURS * 3600 ))"; then
+        "$((ISS_CACHE_HOURS * 3600))"; then
 
         return 0
 
@@ -98,7 +96,7 @@ iss_refresh_cache() {
             "https://iss-api.polluxlabs.io/iss-pass?lat=${ISS_LAT}&lon=${ISS_LON}&visible_only=true"
     )"
 
-    echo "$response" > iss.json
+    echo "$response" >iss.json
 
     if [[ -z "${response}" ]]; then
         if sw_cache_exists "iss.json"; then
@@ -107,7 +105,7 @@ iss_refresh_cache() {
                 "${MODULE_NAME}" \
                 "Unable to refresh ISS cache. Using cached data."
 
-                return 0
+            return 0
 
         fi
 
@@ -116,11 +114,10 @@ iss_refresh_cache() {
             "Unable to refresh ISS cache"
 
         return 1
-        
 
     fi
 
-    if ! jq empty >/dev/null 2>&1 <<< "${response}"; then
+    if ! jq empty >/dev/null 2>&1 <<<"${response}"; then
 
         sw_log_warning \
             "${MODULE_NAME}" \
@@ -130,7 +127,7 @@ iss_refresh_cache() {
 
     fi
 
-    if ! jq -e '.passes | length > 0' >/dev/null 2>&1 <<< "${response}"; then
+    if ! jq -e '.passes | length > 0' >/dev/null 2>&1 <<<"${response}"; then
 
         sw_log_warning \
             "${MODULE_NAME}" \
@@ -140,7 +137,7 @@ iss_refresh_cache() {
 
     fi
 
-    sw_cache_write "iss.json" <<< "${response}"
+    sw_cache_write "iss.json" <<<"${response}"
 
     sw_log_debug \
         "${MODULE_NAME}" \
@@ -162,20 +159,20 @@ iss_format_remaining() {
         return
     fi
 
-    if (( minutes <= 0 )); then
+    if ((minutes <= 0)); then
         echo "Now"
         return
     fi
 
-    if (( minutes < 60 )); then
+    if ((minutes < 60)); then
         echo "${minutes} min"
         return
     fi
 
-    local hours=$(( minutes / 60 ))
-    local mins=$(( minutes % 60 ))
+    local hours=$((minutes / 60))
+    local mins=$((minutes % 60))
 
-    if (( mins == 0 )); then
+    if ((mins == 0)); then
         echo "${hours} h"
     else
         printf "%d h %02d min\n" "${hours}" "${mins}"
@@ -186,8 +183,7 @@ iss_format_remaining() {
 iss_update_dates() {
 
     if ! ISS_START_EPOCH="$(date -d "${ISS_VISIBLE_START}" +%s 2>/dev/null)" ||
-       ! ISS_END_EPOCH="$(date -d "${ISS_VISIBLE_END}" +%s 2>/dev/null)"
-    then
+        ! ISS_END_EPOCH="$(date -d "${ISS_VISIBLE_END}" +%s 2>/dev/null)"; then
 
         sw_log_warning \
             "${MODULE_NAME}" \
@@ -218,9 +214,9 @@ iss_load_data() {
         ISS_DURATION \
         ISS_ELEVATION \
         ISS_DIRECTION \
-    < <(
+        < <(
 
-        jq -r '
+            jq -r '
             .passes[0] |
             [
                 .rise.time,
@@ -230,8 +226,8 @@ iss_load_data() {
                 .culmination.elevation_deg,
                 .rise.compass
             ] | @tsv
-        ' < "$(sw_cache_file "iss.json")"
-    )
+        ' <"$(sw_cache_file "iss.json")"
+        )
 
 }
 
@@ -258,16 +254,16 @@ iss_collect() {
 
         return 1
 
-        }
+    }
 
     now_epoch="$(date +%s)"
 
     iss_update_dates || return 1
 
-    ISS_MINUTES_REMAINING=$(( (ISS_START_EPOCH - now_epoch) / 60 ))
+    ISS_MINUTES_REMAINING=$(((ISS_START_EPOCH - now_epoch) / 60))
 
-    if (( now_epoch >= ISS_START_EPOCH &&
-          now_epoch <= ISS_END_EPOCH )); then
+    if ((now_epoch >= ISS_START_EPOCH && \
+        now_epoch <= ISS_END_EPOCH)); then
 
         ISS_VISIBLE=true
 
@@ -281,9 +277,8 @@ iss_collect() {
         iss_format_remaining \
             "${ISS_MINUTES_REMAINING}" \
             "${ISS_VISIBLE}"
-        )"
+    )"
 
-    
 }
 
 iss_analyze() {
@@ -298,13 +293,13 @@ iss_analyze() {
 
         MODULE_INTERVAL=30
 
-    elif (( ISS_MINUTES_REMAINING <= ISS_CRITICAL_MINUTES )); then
+    elif ((ISS_MINUTES_REMAINING <= ISS_CRITICAL_MINUTES)); then
 
         ISS_STATUS="${SW_STATUS_CRITICAL}"
 
         MODULE_INTERVAL=60
 
-    elif (( ISS_MINUTES_REMAINING <= ISS_WARNING_MINUTES )); then
+    elif ((ISS_MINUTES_REMAINING <= ISS_WARNING_MINUTES)); then
 
         ISS_STATUS="${SW_STATUS_WARNING}"
 
@@ -409,6 +404,3 @@ sw_module_run() {
         "${ISS_MINUTES_REMAINING}"
 
 }
-
-
-

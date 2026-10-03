@@ -17,7 +17,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-180}
 MODULE_ORDER=${MODULE_ORDER:-1200}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 readonly OPENSKY_API_URL="https://opensky-network.org/api/states/all"
 readonly OPENSKY_TOKEN_URL="https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
 readonly HEXDB_API_URL="https://hexdb.io/api/v1/aircraft"
@@ -87,7 +86,7 @@ aircraft_load_countries() {
         #
         #   OpenSky name | official name | ISO | flag
         #
-        if (( ${#fields[@]} >= 4 )); then
+        if ((${#fields[@]} >= 4)); then
             flag="${fields[3]:-}"
         else
             flag="${fields[2]:-}"
@@ -135,8 +134,8 @@ aircraft_token_get() {
         now="$(date +%s)"
 
         if [[ -n "${token}" &&
-              "${expires_at}" =~ ^[0-9]+$ &&
-              "${expires_at}" -gt "${now}" ]]; then
+            "${expires_at}" =~ ^[0-9]+$ &&
+            "${expires_at}" -gt "${now}" ]]; then
 
             printf '%s\n' "${token}"
             return 0
@@ -185,14 +184,14 @@ aircraft_token_get() {
 
     # OpenSky tokens duran aproximadamente 30 minutos.
     # Dejamos margen para evitar reutilizar uno cerca de su expiración.
-    expires_at="$(( $(date +%s) + 1500 ))"
+    expires_at="$(($(date +%s) + 1500))"
 
     umask 077
 
     {
         printf '%s\n' "${token}"
         printf '%s\n' "${expires_at}"
-    } > "${token_file}"
+    } >"${token_file}"
 
     printf '%s\n' "${token}"
 }
@@ -343,13 +342,13 @@ aircraft_hexdb_get() {
         return 1
     }
 
-    if ! jq -e . >/dev/null 2>&1 <<< "${json}"; then
+    if ! jq -e . >/dev/null 2>&1 <<<"${json}"; then
         return 1
     fi
 
     umask 077
 
-    printf '%s\n' "${json}" > "${cache_file}"
+    printf '%s\n' "${json}" >"${cache_file}"
 
     printf '%s\n' "${json}"
 }
@@ -375,13 +374,13 @@ aircraft_enrich() {
 
     json="$(aircraft_hexdb_get "${icao}")" || return 0
 
-    value="$(jq -r '.Manufacturer // empty' <<< "${json}")"
+    value="$(jq -r '.Manufacturer // empty' <<<"${json}")"
     printf -v "${prefix}_MANUFACTURER" '%s' "${value}"
 
-    value="$(jq -r '.Type // empty' <<< "${json}")"
+    value="$(jq -r '.Type // empty' <<<"${json}")"
     printf -v "${prefix}_TYPE" '%s' "${value}"
 
-    value="$(jq -r '.RegisteredOwners // empty' <<< "${json}")"
+    value="$(jq -r '.RegisteredOwners // empty' <<<"${json}")"
     printf -v "${prefix}_OPERATOR" '%s' "${value}"
 }
 
@@ -401,7 +400,7 @@ aircraft_collect() {
 
     token="$(aircraft_token_get)" || return 1
 
-    read -r lamin lomin lamax lomax <<< "$(aircraft_bbox)"
+    read -r lamin lomin lamax lomax <<<"$(aircraft_bbox)"
 
     # -------------------------------------------------------------------------
     # First request
@@ -446,7 +445,7 @@ aircraft_collect() {
     fi
 
     states_count="$(
-        jq -r '.states // [] | length' <<< "${json}"
+        jq -r '.states // [] | length' <<<"${json}"
     )"
 
     if [[ ! "${states_count}" =~ ^[0-9]+$ ]]; then
@@ -457,8 +456,8 @@ aircraft_collect() {
 
         return 1
     fi
-    
-    echo "$json" | jq . > "${CACHE_DIR}/opensky.json"
+
+    echo "$json" | jq . >"${CACHE_DIR}/opensky.json"
 
     # -------------------------------------------------------------------------
     # Reset current data
@@ -526,11 +525,14 @@ aircraft_collect() {
                 (.[10] // null)
             ]
             | @tsv
-        ' <<< "${json}"
+        ' <<<"${json}"
     )"
 
     # No airborne aircraft.
-    [[ -n "${aircraft_list}" ]] || { MODULE_INTERVAL=180; return 0; }
+    [[ -n "${aircraft_list}" ]] || {
+        MODULE_INTERVAL=180
+        return 0
+    }
 
     # -------------------------------------------------------------------------
     # Calculate distances
@@ -556,8 +558,7 @@ aircraft_collect() {
         lat \
         altitude \
         speed \
-        track
-    do
+        track; do
 
         [[ -n "${lat}" && -n "${lon}" ]] || continue
 
@@ -569,15 +570,18 @@ aircraft_collect() {
 
         sorted_list+="${distance}"$'\t'"${icao}"$'\t'"${callsign}"$'\t'"${country}"$'\t'"${altitude}"$'\t'"${speed}"$'\t'"${track}"$'\n'
 
-    done <<< "${aircraft_list}"
+    done <<<"${aircraft_list}"
 
     AIRCRAFT_COUNT="$(
-        grep -c '.' <<< "${sorted_list}"
+        grep -c '.' <<<"${sorted_list}"
     )"
 
     [[ "${AIRCRAFT_COUNT}" =~ ^[0-9]+$ ]] || AIRCRAFT_COUNT=0
 
-    (( AIRCRAFT_COUNT > 0 )) || { MODULE_INTERVAL=180; return 0; }
+    ((AIRCRAFT_COUNT > 0)) || {
+        MODULE_INTERVAL=180
+        return 0
+    }
 
     MODULE_INTERVAL=$MODULE_INTERVAL_IF_AIRCRAFTS
 
@@ -594,12 +598,11 @@ aircraft_collect() {
         country \
         altitude \
         speed \
-        track
-    do
+        track; do
 
-        (( index++ ))
+        ((index++))
 
-        if (( index == 1 )); then
+        if ((index == 1)); then
 
             AIRCRAFT_1_ICAO="${icao}"
             AIRCRAFT_1_CALLSIGN="${callsign}"
@@ -609,7 +612,7 @@ aircraft_collect() {
             AIRCRAFT_1_SPEED="${speed}"
             AIRCRAFT_1_TRACK="${track}"
 
-        elif (( index == 2 )); then
+        elif ((index == 2)); then
 
             AIRCRAFT_2_ICAO="${icao}"
             AIRCRAFT_2_CALLSIGN="${callsign}"
@@ -636,7 +639,7 @@ aircraft_collect() {
 
     aircraft_enrich "AIRCRAFT_1" "${AIRCRAFT_1_ICAO}"
 
-    if (( AIRCRAFT_COUNT >= 2 )); then
+    if ((AIRCRAFT_COUNT >= 2)); then
         aircraft_enrich "AIRCRAFT_2" "${AIRCRAFT_2_ICAO}"
     fi
 
@@ -652,7 +655,7 @@ aircraft_collect() {
     # -------------------------------------------------------------------------
 
     if [[ "${AIRCRAFT_1_DISTANCE}" =~ ^[0-9]+([.][0-9]+)?$ &&
-          "${AIRCRAFT_1_ALTITUDE}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+        "${AIRCRAFT_1_ALTITUDE}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
 
         if awk \
             -v distance="${AIRCRAFT_1_DISTANCE}" \
@@ -663,8 +666,7 @@ aircraft_collect() {
             BEGIN {
                 exit !(distance <= radius && altitude <= max_altitude)
             }
-        '
-        then
+        '; then
 
             AIRCRAFT_INFO=1
             AIRCRAFT_1_CLOSE=1
@@ -683,7 +685,7 @@ aircraft_analyze() {
 
     AIRCRAFT_STATUS="${SW_STATUS_OK}"
 
-    if (( AIRCRAFT_INFO == 1 )); then
+    if ((AIRCRAFT_INFO == 1)); then
         AIRCRAFT_STATUS="${SW_STATUS_INFO}"
     fi
 }
@@ -818,7 +820,7 @@ aircraft_update_state() {
     # No aircraft
     # -------------------------------------------------------------------------
 
-    if (( AIRCRAFT_COUNT == 0 )); then
+    if ((AIRCRAFT_COUNT == 0)); then
 
         aircraft_delete_nearest_state
         aircraft_delete_second_state
@@ -869,7 +871,7 @@ aircraft_update_state() {
     sw_state_set "nearest.track.unit" "°"
     sw_state_set "nearest.track.order" "60"
 
-    if (( AIRCRAFT_1_CLOSE == 1 )); then
+    if ((AIRCRAFT_1_CLOSE == 1)); then
 
         sw_state_set "nearest.close" "1"
         sw_state_set "nearest.close.label" "$(sw_translate "Más cercano")"
@@ -932,7 +934,7 @@ aircraft_update_state() {
     # Second nearest aircraft
     # -------------------------------------------------------------------------
 
-    if (( AIRCRAFT_COUNT >= 2 )); then
+    if ((AIRCRAFT_COUNT >= 2)); then
 
         sw_state_set "second.title" "=========="
         sw_state_set "second.title.label" "$(sw_translate "Second nearest")"
@@ -1032,7 +1034,7 @@ aircraft_update_state() {
 
 aircraft_report() {
 
-    if (( AIRCRAFT_INFO == 1 )); then
+    if ((AIRCRAFT_INFO == 1)); then
 
         sw_log_info \
             "${MODULE_NAME}" \
@@ -1099,7 +1101,7 @@ sw_module_run() {
     # -------------------------------------------------------------------------
 
     if [[ "${AIRCRAFT_STATUS}" == "${SW_STATUS_INFO}" &&
-          "${previous_status}" != "${SW_STATUS_INFO}" ]]; then
+        "${previous_status}" != "${SW_STATUS_INFO}" ]]; then
 
         sw_timer_create "aircraft" "5" "statusok"
 

@@ -23,7 +23,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-43200}
 MODULE_ORDER=${MODULE_ORDER:-800}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -56,18 +55,17 @@ apod_collect() {
     mkdir -p "${HTML_DIR}/images"
     cp "${APOD_PATH}/${APOD_NAME}" "${HTML_DIR}/images/foto.${APOD_EXT}"
 
-
 }
 
 apod_analyze() {
 
     APOD_STATUS="${SW_STATUS_OK}"
 
-    if (( APOD_VALUE >= APOD_CRITICAL )); then
+    if ((APOD_VALUE >= APOD_CRITICAL)); then
 
         APOD_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif (( APOD_VALUE >= APOD_WARNING )); then
+    elif ((APOD_VALUE >= APOD_WARNING)); then
 
         APOD_STATUS="${SW_STATUS_WARNING}"
 

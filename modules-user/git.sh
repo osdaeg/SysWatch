@@ -20,7 +20,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-300}
 MODULE_ORDER=${MODULE_ORDER:-10}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -37,7 +36,6 @@ readonly GITEA_USER="${GITEA_USER:-}"
 readonly GITEA_HOST="${GITEA_HOST:-}"
 readonly GITEA_TOKEN="${GITEA_TOKEN:-}"
 
-
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
@@ -47,7 +45,6 @@ GIT_CODEBERG_REPOS=0
 GIT_GITEA_REPOS=0
 
 GIT_STATUS="${SW_STATUS_UNKNOWN}"
-
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -74,7 +71,7 @@ git_github() {
             "https://api.${GITHUB_HOST}/user/repos?per_page=100&page=1"
     ) || return 1
 
-    echo "$response" | jq . > "/home/daniel/scripts/syswatch/cache/github.json"
+    echo "$response" | jq . >"/home/daniel/scripts/syswatch/cache/github.json"
 
     GIT_GITHUB_REPOS=$(
         printf '%s\n' "$response" |
@@ -82,13 +79,13 @@ git_github() {
     ) || return 1
 
     GIT_GITHUB_ISSUES=$(
-    printf '%s\n' "$response" |
-        jq '[.[].open_issues_count // 0] | add'
+        printf '%s\n' "$response" |
+            jq '[.[].open_issues_count // 0] | add'
     ) || return 1
 
     GIT_GITHUB_FORKS=$(
-    printf '%s\n' "$response" |
-        jq '[.[].forks_count // 0] | add'
+        printf '%s\n' "$response" |
+            jq '[.[].forks_count // 0] | add'
     ) || return 1
 
 }
@@ -113,7 +110,7 @@ git_gitea() {
     ) || return 1
 
     echo "$response" |
-        jq . > "/home/daniel/scripts/syswatch/cache/gitea.json"
+        jq . >"/home/daniel/scripts/syswatch/cache/gitea.json"
 
     GIT_GITEA_REPOS=$(
         printf '%s\n' "$response" |
@@ -157,7 +154,7 @@ git_codeberg() {
     ) || return 1
 
     echo "$response" |
-        jq . > "/home/daniel/scripts/syswatch/cache/codeberg.json"
+        jq . >"/home/daniel/scripts/syswatch/cache/codeberg.json"
 
     GIT_CODEBERG_REPOS=$(
         printf '%s\n' "$response" |
@@ -180,8 +177,6 @@ git_codeberg() {
     ) || return 1
 
 }
-
-
 
 git_collect() {
 
@@ -209,8 +204,6 @@ git_collect() {
     GIT_GITEA_PREVIOUS_ISSUES=0
     GIT_GITEA_PREVIOUS_FORKS=0
     GIT_GITEA_PREVIOUS_PR=0
-
-    
 
     if [[ -n "$GITHUB_HOST" ]]; then
         git_github || failed=1
@@ -250,13 +243,12 @@ git_check_increase() {
 
     TEMP_VALUE=$previous
 
-    if (( current > previous )); then
+    if ((current > previous)); then
         return 1
     fi
 
     return 0
 }
-
 
 git_analyze() {
 
@@ -278,7 +270,6 @@ git_analyze() {
         GIT_STATUS="${SW_STATUS_UNKNOWN}"
         return
     fi
-
 
     # -------------------------------------------------------------------------
     # Activity increase
@@ -399,11 +390,11 @@ git_update_state() {
         local github_issues_unit="$(sw_translate "open")"
         local github_forks_unit="$(sw_translate "created")"
 
-        if (( GIT_GITHUB_PREVIOUS_ISSUES > 0 )); then
+        if ((GIT_GITHUB_PREVIOUS_ISSUES > 0)); then
             github_issues_unit+=" ($GIT_GITHUB_PREVIOUS_ISSUES)"
         fi
 
-        if (( GIT_GITHUB_PREVIOUS_FORKS > 0 )); then
+        if ((GIT_GITHUB_PREVIOUS_FORKS > 0)); then
             github_forks_unit+=" ($GIT_GITHUB_PREVIOUS_FORKS)"
         fi
 
@@ -465,7 +456,7 @@ git_update_state() {
 
         sw_state_set \
             "github_forks.order" \
-            "12"    
+            "12"
 
     fi
 
@@ -479,19 +470,17 @@ git_update_state() {
         local github_forks_unit="$(sw_translate "created")"
         local github_pr_unit="$(sw_translate "created")"
 
-        if (( GIT_CODEBERG_PREVIOUS_ISSUES > 0 )); then
+        if ((GIT_CODEBERG_PREVIOUS_ISSUES > 0)); then
             github_issues_unit+=" ($GIT_CODEBERG_PREVIOUS_ISSUES)"
         fi
 
-        if (( GIT_CODEBERG_PREVIOUS_FORKS > 0 )); then
+        if ((GIT_CODEBERG_PREVIOUS_FORKS > 0)); then
             github_forks_unit+=" ($GIT_CODEBERG_PREVIOUS_FORKS)"
         fi
 
-        if (( GIT_CODEBERG_PREVIOUS_PR > 0 )); then
+        if ((GIT_CODEBERG_PREVIOUS_PR > 0)); then
             github_pr_unit+=" ($GIT_CODEBERG_PREVIOUS_PR)"
         fi
-
-
 
         sw_state_set \
             "codeberg" \
@@ -551,7 +540,7 @@ git_update_state() {
 
         sw_state_set \
             "codeberg_forks.order" \
-            "22"        
+            "22"
 
         sw_state_set \
             "codeberg_pr" \
@@ -571,8 +560,7 @@ git_update_state() {
 
         sw_state_set \
             "codeberg_pr.order" \
-            "23"        
-    
+            "23"
 
     fi
 
@@ -586,19 +574,17 @@ git_update_state() {
         local github_forks_unit="$(sw_translate "created")"
         local github_pr_unit="$(sw_translate "created")"
 
-        if (( GIT_GITEA_PREVIOUS_ISSUES > 0 )); then
+        if ((GIT_GITEA_PREVIOUS_ISSUES > 0)); then
             github_issues_unit+=" ($GIT_GITEA_PREVIOUS_ISSUES)"
         fi
 
-        if (( GIT_GITEA_PREVIOUS_FORKS > 0 )); then
+        if ((GIT_GITEA_PREVIOUS_FORKS > 0)); then
             github_forks_unit+=" ($GIT_GITEA_PREVIOUS_FORKS)"
         fi
 
-        if (( GIT_GITEA_PREVIOUS_PR > 0 )); then
+        if ((GIT_GITEA_PREVIOUS_PR > 0)); then
             github_pr_unit+=" ($GIT_GITEA_PREVIOUS_PR)"
         fi
-
-
 
         sw_state_set \
             "gitea" \
@@ -658,7 +644,7 @@ git_update_state() {
 
         sw_state_set \
             "gitea_forks.order" \
-            "32"        
+            "32"
 
         sw_state_set \
             "gitea_pr" \
@@ -678,15 +664,11 @@ git_update_state() {
 
         sw_state_set \
             "gitea_pr.order" \
-            "33"        
-    
+            "33"
 
     fi
 
-
-
 }
-
 
 git_report() {
 
@@ -706,7 +688,6 @@ git_report() {
         "${message}"
 
 }
-
 
 sw_module_run() {
 
@@ -738,7 +719,6 @@ sw_module_run() {
     sw_csv_append "git" "gitea_issues" "$GIT_GITEA_ISSUES"
     sw_csv_append "git" "gitea_forks" "$GIT_GITEA_FORKS"
     sw_csv_append "git" "gitea_pr" "$GIT_GITEA_PR"
-
 
     git_report
 

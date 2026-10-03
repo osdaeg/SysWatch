@@ -157,7 +157,6 @@ rss_load_history() {
 
     done
 
-    
 }
 
 # -----------------------------------------------------------------------------
@@ -179,17 +178,17 @@ rss_analyze() {
         #[[ -n "${RSS_KNOWN["$guid"]-}" ]] && continue
 
         if [[ -n "${RSS_KNOWN["$guid"]-}" ]]; then
-    continue
-else
-    echo "NUEVO:    [$guid]" >&2
-fi
+            continue
+        else
+            echo "NUEVO:    [$guid]" >&2
+        fi
 
         ((RSS_NEW_ARTICLES++))
         RSS_NEW_GUIDS+=("$guid")
 
     done
 
-    if ((RSS_NEW_ARTICLES > 0 )); then
+    if ((RSS_NEW_ARTICLES > 0)); then
         RSS_STATUS="${SW_STATUS_INFO}"
     else
         RSS_STATUS="${SW_STATUS_OK}"
@@ -344,15 +343,11 @@ sw_module_run() {
 
         sw_state_use "$RSS_FEED_TITLE"
 
-        
         if [[ -n "$MODULE_REMOTE" ]]; then
             sw_state_remote "$MODULE_REMOTE"
         fi
 
         sw_state_load
-
-        
-
 
         #
         # Now that we have the correct state, load its history
@@ -361,7 +356,6 @@ sw_module_run() {
 
         rss_load_history
 
-        
         rss_analyze
 
         sw_status_update \

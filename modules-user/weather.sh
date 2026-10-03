@@ -365,7 +365,7 @@ weather_update_state() {
     else
         sw_state_set "location" "$(sw_translate "Undefined")"
     fi
-    
+
     sw_state_set "location" "${location}"
     sw_state_set "location.label" "$(sw_translate "Location")"
 

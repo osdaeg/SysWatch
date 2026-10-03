@@ -20,7 +20,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-180}
 MODULE_ORDER=${MODULE_ORDER:-44}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -92,8 +91,7 @@ temp_discover_sensors() {
     local label
     local value
 
-    while IFS='|' read -r chip label value
-    do
+    while IFS='|' read -r chip label value; do
 
         [[ -z "${chip}" || -z "${value}" ]] && continue
 
@@ -109,7 +107,7 @@ temp_discover_sensors() {
 
     done < <(
         sensors 2>/dev/null |
-        awk '
+            awk '
             /^Adapter:/  { next }
             /^$/         { next }
 
@@ -168,8 +166,7 @@ temp_discover_thermal_zone() {
     local millidegrees
     local value
 
-    for zone in /sys/class/thermal/thermal_zone*
-    do
+    for zone in /sys/class/thermal/thermal_zone*; do
 
         [[ -d "${zone}" ]] || continue
         [[ -r "${zone}/temp" ]] || continue
@@ -199,25 +196,25 @@ temp_collect() {
 
     case "${TEMP_SOURCE}" in
 
-        sensors)
+    sensors)
 
-            sw_require_command sensors || return 127
-            temp_discover_sensors
-            ;;
+        sw_require_command sensors || return 127
+        temp_discover_sensors
+        ;;
 
-        thermal_zone)
+    thermal_zone)
 
-            temp_discover_thermal_zone
-            ;;
+        temp_discover_thermal_zone
+        ;;
 
-        *)
+    *)
 
-            sw_log_error \
-                "${MODULE_NAME}" \
-                "Unknown TEMP_SOURCE: ${TEMP_SOURCE} (expected 'sensors' or 'thermal_zone')"
+        sw_log_error \
+            "${MODULE_NAME}" \
+            "Unknown TEMP_SOURCE: ${TEMP_SOURCE} (expected 'sensors' or 'thermal_zone')"
 
-            return 1
-            ;;
+        return 1
+        ;;
 
     esac
 
@@ -229,23 +226,20 @@ temp_analyze() {
     local value
     local key
 
-    for (( i=0; i<${#TEMP_KEYS[@]}; i++ ))
-    do
+    for ((i = 0; i < ${#TEMP_KEYS[@]}; i++)); do
 
         value="${TEMP_VALUE[$i]%%.*}"
         key="${TEMP_KEYS[$i]}"
 
         TEMP_STATUS[$i]="${SW_STATUS_OK}"
 
-        if (( value >= TEMP_CRITICAL )) &&
-           sw_csv_all_above "${key}" value "${TEMP_CRITICAL}" "${TEMP_SUSTAINED_SAMPLES}"
-        then
+        if ((value >= TEMP_CRITICAL)) &&
+            sw_csv_all_above "${key}" value "${TEMP_CRITICAL}" "${TEMP_SUSTAINED_SAMPLES}"; then
 
             TEMP_STATUS[$i]="${SW_STATUS_CRITICAL}"
 
-        elif (( value >= TEMP_WARNING )) &&
-             sw_csv_all_above "${key}" value "${TEMP_WARNING}" "${TEMP_SUSTAINED_SAMPLES}"
-        then
+        elif ((value >= TEMP_WARNING)) &&
+            sw_csv_all_above "${key}" value "${TEMP_WARNING}" "${TEMP_SUSTAINED_SAMPLES}"; then
 
             TEMP_STATUS[$i]="${SW_STATUS_WARNING}"
 
@@ -260,7 +254,7 @@ temp_update_state() {
     local i
     local key
 
-    for (( i=0; i<${#TEMP_KEYS[@]}; i++ )); do
+    for ((i = 0; i < ${#TEMP_KEYS[@]}; i++)); do
 
         key="${TEMP_KEYS[$i]}"
 
@@ -298,7 +292,7 @@ temp_report() {
     local i
     local summary=""
 
-    for (( i=0; i<${#TEMP_KEYS[@]}; i++ )); do
+    for ((i = 0; i < ${#TEMP_KEYS[@]}; i++)); do
 
         summary+="${TEMP_LABEL[$i]}=${TEMP_VALUE[$i]}°C (${TEMP_STATUS[$i]}) "
 

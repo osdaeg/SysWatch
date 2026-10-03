@@ -100,7 +100,7 @@ gpu_collect() {
 
         fi
 
-    done <<< "$output"
+    done <<<"$output"
 
 }
 
@@ -172,9 +172,10 @@ gpu_update_state() {
 
         sw_state_set "sclk" "${GPU_SCLK}"
         sw_state_set "sclk.label" "$(sw_translate "GPU clock")"
-        sw_state_set "sclk.widget" "line"
+        #sw_state_set "sclk.widget" "line"
         sw_state_set "sclk.unit" "MHz"
         sw_state_set "sclk.order" "30"
+        sw_state_set "sclk.color" "yellow"
 
     fi
 

@@ -23,7 +23,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-120}
 MODULE_ORDER=${MODULE_ORDER:-5}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -61,11 +60,11 @@ datetime_analyze() {
 
     DATETIME_STATUS="${SW_STATUS_OK}"
 
-    if (( DATETIME_VALUE >= DATETIME_CRITICAL )); then
+    if ((DATETIME_VALUE >= DATETIME_CRITICAL)); then
 
         DATETIME_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif (( DATETIME_VALUE >= DATETIME_WARNING )); then
+    elif ((DATETIME_VALUE >= DATETIME_WARNING)); then
 
         DATETIME_STATUS="${SW_STATUS_WARNING}"
 
@@ -97,23 +96,23 @@ datetime_update_state() {
     #sw_state_set "value.order" "10"
     #sw_state_set "value.warning" "${DATETIME_WARNING}"
     #sw_state_set "value.critical" "${DATETIME_CRITICAL}"
-    
+
     sw_state_set "fecha" "${DT_DAY}"
     sw_state_set "fecha.label" "$(sw_translate "Date")"
     sw_state_set "fecha.order" "10"
-    
+
     sw_state_set "hora" "${DT_TIME}"
     sw_state_set "hora.label" "$(sw_translate "Time")"
     sw_state_set "hora.order" "20"
-    
+
     sw_state_set "uptime" "${DT_UPTIME}"
     sw_state_set "uptime.label" "$(sw_translate "Uptime")"
     sw_state_set "uptime.order" "30"
-    
+
     sw_state_set "boot" "${DT_BOOT}"
     sw_state_set "boot.label" "$(sw_translate "Boot time")"
     sw_state_set "boot.order" "40"
-    
+
     sw_state_set "segundos" "${DT_SECONDS}"
     sw_state_set "segundos.label" "$(sw_translate "Seconds")"
     sw_state_set "segundos.order" "50"

@@ -31,7 +31,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-360}
 MODULE_ORDER=${MODULE_ORDER:-41}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -112,22 +111,21 @@ rclone_discover() {
     RCLONE_KEYS=()
     RCLONE_MOUNTPOINTS=()
 
-    while read -r device mountpoint fstype rest
-    do
+    while read -r device mountpoint fstype rest; do
 
         case "${fstype}" in
 
-            "${RCLONE_FSTYPE_PATTERN}"*)
+        "${RCLONE_FSTYPE_PATTERN}"*)
 
-                mountpoint="$(rclone_unescape "${mountpoint}")"
+            mountpoint="$(rclone_unescape "${mountpoint}")"
 
-                RCLONE_KEYS+=("$(rclone_sanitize_key "${mountpoint}")")
-                RCLONE_MOUNTPOINTS+=("${mountpoint}")
-                ;;
+            RCLONE_KEYS+=("$(rclone_sanitize_key "${mountpoint}")")
+            RCLONE_MOUNTPOINTS+=("${mountpoint}")
+            ;;
 
         esac
 
-    done < "${RCLONE_MOUNTS_SOURCE}"
+    done <"${RCLONE_MOUNTS_SOURCE}"
 
 }
 
@@ -142,7 +140,7 @@ rclone_resolve_remote_name() {
     if [[ -n "${RCLONE_REMOTE_OVERRIDE}" ]]; then
 
         local pairs=()
-        IFS=',' read -ra pairs <<< "${RCLONE_REMOTE_OVERRIDE}"
+        IFS=',' read -ra pairs <<<"${RCLONE_REMOTE_OVERRIDE}"
 
         local pair
         local candidate_dir
@@ -186,7 +184,7 @@ rclone_convert_to_gib() {
     }'
 }
 
-rclone_stats () {
+rclone_stats() {
 
     local mountpoint="$1"
     local remote_name
@@ -195,39 +193,39 @@ rclone_stats () {
     local raw=""
     local salida=""
     local total
-    local used 
+    local used
     local free
-    local trashed 
-    local other 
+    local trashed
+    local other
     local num_total=0
     local num_used=0
     local percent=0
     local estado
 
     case "$RCLONE_EXECUTABLE" in
-        "docker")
-            # Wrapping the assignment in 'if' is what makes this safe
-            # under errexit: a plain 'raw=$(...); estado=$?' would abort
-            # the whole script on failure before 'estado=$?' ever ran,
-            # taking every OTHER mount in this loop down with it.
-            if raw=$(docker exec "$RCLONE_CONTAINER" rclone about "${remote_name}:" 2>/dev/null); then
-                estado=0
-            else
-                estado=$?
-            fi
-            ;;
-        "host")
-            if raw=$(rclone about "${remote_name}:" 2>/dev/null); then
-                estado=0
-            else
-                estado=$?
-            fi
-            ;;
-        *)
-            #echo "Error: Modo RCLONE_MODE '$RCLONE_EXECUTABLE' no válido. Use 'docker' o 'host'."
-            estado=1
-            raw=""
-            ;;
+    "docker")
+        # Wrapping the assignment in 'if' is what makes this safe
+        # under errexit: a plain 'raw=$(...); estado=$?' would abort
+        # the whole script on failure before 'estado=$?' ever ran,
+        # taking every OTHER mount in this loop down with it.
+        if raw=$(docker exec "$RCLONE_CONTAINER" rclone about "${remote_name}:" 2>/dev/null); then
+            estado=0
+        else
+            estado=$?
+        fi
+        ;;
+    "host")
+        if raw=$(rclone about "${remote_name}:" 2>/dev/null); then
+            estado=0
+        else
+            estado=$?
+        fi
+        ;;
+    *)
+        #echo "Error: Modo RCLONE_MODE '$RCLONE_EXECUTABLE' no válido. Use 'docker' o 'host'."
+        estado=1
+        raw=""
+        ;;
     esac
 
     if [ $estado -ne 0 ] || [ -z "$raw" ]; then
@@ -240,7 +238,7 @@ rclone_stats () {
         free=$(echo "$salida" | awk '/Free:/ {print $2" "$3}')
         trashed=$(echo "$salida" | awk '/Trashed:/ {print $2" "$3}')
         other=$(echo "$salida" | awk '/Other:/ {print $2" "$3}')
-        
+
         total1=$(rclone_convert_to_gib "$total")
         used1=$(rclone_convert_to_gib "$used")
         free1=$(rclone_convert_to_gib "$free")
@@ -285,12 +283,12 @@ rclone_check_mount() {
     timeout "${RCLONE_TIMEOUT_SECONDS}" stat "${mountpoint}" >/dev/null 2>&1
     rc=$?
 
-    if (( rc == 0 )); then
+    if ((rc == 0)); then
 
         RCLONE_DETAIL[$i]="ok"
         RCLONE_FAILED[$i]=0
 
-    elif (( rc == 124 )); then
+    elif ((rc == 124)); then
 
         RCLONE_DETAIL[$i]="timeout"
         RCLONE_FAILED[$i]=1
@@ -323,7 +321,7 @@ rclone_collect() {
 
     local i
 
-    for (( i=0; i<${#RCLONE_KEYS[@]}; i++ )); do
+    for ((i = 0; i < ${#RCLONE_KEYS[@]}; i++)); do
 
         rclone_check_mount "${i}" "${RCLONE_MOUNTPOINTS[$i]}"
 
@@ -336,16 +334,14 @@ rclone_analyze() {
     local i
     local key
 
-    for (( i=0; i<${#RCLONE_KEYS[@]}; i++ ))
-    do
+    for ((i = 0; i < ${#RCLONE_KEYS[@]}; i++)); do
 
         key="${RCLONE_KEYS[$i]}"
 
         RCLONE_STATUS[$i]="${SW_STATUS_OK}"
 
-        if (( RCLONE_FAILED[$i] == 1 )) &&
-           sw_csv_all_above "${key}" failed 1 "${RCLONE_SUSTAINED_SAMPLES}"
-        then
+        if ((RCLONE_FAILED[$i] == 1)) &&
+            sw_csv_all_above "${key}" failed 1 "${RCLONE_SUSTAINED_SAMPLES}"; then
 
             RCLONE_STATUS[$i]="${SW_STATUS_CRITICAL}"
 
@@ -365,7 +361,7 @@ rclone_update_state() {
     local labels=("% used" "Total" "Used" "Free" "Trashed" "Others")
     local valor
 
-    for (( i=0; i<${#RCLONE_KEYS[@]}; i++ )); do
+    for ((i = 0; i < ${#RCLONE_KEYS[@]}; i++)); do
 
         key="${RCLONE_KEYS[$i]}"
 
@@ -375,7 +371,7 @@ rclone_update_state() {
         sw_status_update "${RCLONE_STATUS[$i]}" "${key}" || continue
 
         sw_state_set "module_version" "${MODULE_VERSION}"
-        
+
         mountpoint=$(basename "${RCLONE_MOUNTPOINTS[$i]}")
 
         sw_state_set "module.label" "rclone: ${mountpoint}"
@@ -385,40 +381,38 @@ rclone_update_state() {
         sw_state_set "detail" "${RCLONE_DETAIL[$i]}"
         sw_state_set "detail.label" "$(sw_translate "Status")"
         sw_state_set "detail.order" "10"
-        
+
         RCLONE_STATS=()
-        
+
         rclone_stats "${mountpoint}"
-        
+
         order=20
 
-       # Ciclo para recorrer el array por sus índices (del 0 al 4)
-       for j in "${!RCLONE_STATS[@]}"; do
+        # Ciclo para recorrer el array por sus índices (del 0 al 4)
+        for j in "${!RCLONE_STATS[@]}"; do
             valor="${RCLONE_STATS[$j]}"
-    
+
             # Si el valor es estrictamente "0", no hace nada y continúa
             if [ "$valor" = "0" ]; then
                 continue
             fi
-    
+
             # Obtener la etiqueta correspondiente al índice actual
             label="${labels[$j]}"
 
             sw_state_set "${label}" "${RCLONE_STATS[$j]}"
             sw_state_set "${label}.label" "$(sw_translate "${label}")"
-            
 
             if [ "${label}" == "% used" ] 2>/dev/null; then
                 sw_state_set "${label}.widget" "gauge"
                 sw_state_set "${label}.unit" "%"
                 sw_state_set "${label}.order" "70"
-            else    
+            else
                 sw_state_set "${label}.order" "${order}"
                 order=$((order + 10))
             fi
 
         done
-
 
         sw_state_save
 
@@ -436,7 +430,7 @@ rclone_report() {
     local i
     local summary=""
 
-    for (( i=0; i<${#RCLONE_KEYS[@]}; i++ )); do
+    for ((i = 0; i < ${#RCLONE_KEYS[@]}; i++)); do
 
         summary+="${RCLONE_MOUNTPOINTS[$i]}=${RCLONE_DETAIL[$i]} "
 

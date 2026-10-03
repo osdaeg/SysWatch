@@ -26,7 +26,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-420}
 MODULE_ORDER=${MODULE_ORDER:-45}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
@@ -63,15 +62,15 @@ netbird_collect() {
 
     fi
 
-    NETBIRD_DAEMON_STATUS="$(jq -r '.daemonStatus // "unknown"' <<< "${json}")"
-    NETBIRD_MANAGEMENT_CONNECTED="$(jq -r '.management.connected // false' <<< "${json}")"
-    NETBIRD_SIGNAL_CONNECTED="$(jq -r '.signal.connected // false' <<< "${json}")"
+    NETBIRD_DAEMON_STATUS="$(jq -r '.daemonStatus // "unknown"' <<<"${json}")"
+    NETBIRD_MANAGEMENT_CONNECTED="$(jq -r '.management.connected // false' <<<"${json}")"
+    NETBIRD_SIGNAL_CONNECTED="$(jq -r '.signal.connected // false' <<<"${json}")"
 
-    NETBIRD_PEERS_TOTAL="$(jq -r '.peers.total // 0' <<< "${json}")"
-    NETBIRD_PEERS_CONNECTED="$(jq -r '.peers.connected // 0' <<< "${json}")"
+    NETBIRD_PEERS_TOTAL="$(jq -r '.peers.total // 0' <<<"${json}")"
+    NETBIRD_PEERS_CONNECTED="$(jq -r '.peers.connected // 0' <<<"${json}")"
 
-    NETBIRD_RELAYS_TOTAL="$(jq -r '.relays.total // 0' <<< "${json}")"
-    NETBIRD_RELAYS_AVAILABLE="$(jq -r '.relays.available // 0' <<< "${json}")"
+    NETBIRD_RELAYS_TOTAL="$(jq -r '.relays.total // 0' <<<"${json}")"
+    NETBIRD_RELAYS_AVAILABLE="$(jq -r '.relays.available // 0' <<<"${json}")"
 
 }
 

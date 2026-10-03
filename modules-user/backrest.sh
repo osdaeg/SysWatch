@@ -32,7 +32,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-86400}
 MODULE_ORDER=${MODULE_ORDER:-43}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -114,7 +113,7 @@ backrest_query_plan() {
         ]
         | sort_by(.unixTimeEndMs | tonumber)
         | last
-    ' <<< "${response}" 2>/dev/null
+    ' <<<"${response}" 2>/dev/null
 
 }
 
@@ -156,48 +155,48 @@ backrest_process_plan() {
     local age_hours
     local plan_status
 
-    status="$(jq -r '.status // "STATUS_UNKNOWN"' <<< "${op}")"
-    end_ms="$(jq -r '.unixTimeEndMs // "0"' <<< "${op}")"
-    message="$(jq -r '.displayMessage // ""' <<< "${op}")"
+    status="$(jq -r '.status // "STATUS_UNKNOWN"' <<<"${op}")"
+    end_ms="$(jq -r '.unixTimeEndMs // "0"' <<<"${op}")"
+    message="$(jq -r '.displayMessage // ""' <<<"${op}")"
 
-    age_hours=$(( ( $(date +%s) - (end_ms / 1000) ) / 3600 ))
+    age_hours=$((($(date +%s) - (end_ms / 1000)) / 3600))
 
     case "${status}" in
 
-        STATUS_SUCCESS)
+    STATUS_SUCCESS)
 
-            sw_state_reset
+        sw_state_reset
 
-            if (( age_hours > BACKREST_MAX_AGE_HOURS )); then
-
-                plan_status="${SW_STATUS_WARNING}"
-                message="$(printf "$(sw_translate "Last run %sh ago (expected every %sh)")\n" \
-                        "$age_hours" "$BACKREST_MAX_AGE_HOURS")"
-
-            else
-
-                plan_status="${SW_STATUS_OK}"
-
-            fi
-            ;;
-
-        STATUS_WARNING|STATUS_SYSTEM_CANCELLED|STATUS_USER_CANCELLED)
+        if ((age_hours > BACKREST_MAX_AGE_HOURS)); then
 
             plan_status="${SW_STATUS_WARNING}"
-            ;;
+            message="$(printf "$(sw_translate "Last run %sh ago (expected every %sh)")\n" \
+                "$age_hours" "$BACKREST_MAX_AGE_HOURS")"
 
-        STATUS_ERROR)
+        else
 
-            plan_status="${SW_STATUS_CRITICAL}"
-            ;;
+            plan_status="${SW_STATUS_OK}"
 
-        *)
+        fi
+        ;;
 
-            # STATUS_INPROGRESS / STATUS_PENDING shouldn't reach here
-            # (they're filtered out by requiring unixTimeEndMs > 0), but
-            # fall back safely if something unexpected shows up.
-            plan_status="${SW_STATUS_WARNING}"
-            ;;
+    STATUS_WARNING | STATUS_SYSTEM_CANCELLED | STATUS_USER_CANCELLED)
+
+        plan_status="${SW_STATUS_WARNING}"
+        ;;
+
+    STATUS_ERROR)
+
+        plan_status="${SW_STATUS_CRITICAL}"
+        ;;
+
+    *)
+
+        # STATUS_INPROGRESS / STATUS_PENDING shouldn't reach here
+        # (they're filtered out by requiring unixTimeEndMs > 0), but
+        # fall back safely if something unexpected shows up.
+        plan_status="${SW_STATUS_WARNING}"
+        ;;
 
     esac
 
@@ -212,7 +211,7 @@ backrest_process_plan() {
     sw_state_set "backup_status" "${status}"
     sw_state_set "backup_status.label" "$(sw_translate "Status")"
 
-    sw_state_set "last_backup" "$(date -d "@$(( end_ms / 1000 ))" '+%Y-%m-%d %H:%M' 2>/dev/null)"
+    sw_state_set "last_backup" "$(date -d "@$((end_ms / 1000))" '+%Y-%m-%d %H:%M' 2>/dev/null)"
     sw_state_set "last_backup.label" "$(sw_translate "Last run")"
 
     message="$(sw_sanitize_state_value "$message")"
@@ -250,7 +249,7 @@ sw_module_run() {
     fi
 
     local plans_array=()
-    IFS=',' read -ra plans_array <<< "${BACKREST_PLANS}"
+    IFS=',' read -ra plans_array <<<"${BACKREST_PLANS}"
 
     local plan
     local key

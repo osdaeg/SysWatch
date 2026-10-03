@@ -296,6 +296,11 @@ encoded_calendar_id="$(
             "${start}"$'\t'"${end}"$'\t'"${title}"$'\t'"${calendar}"$'\t'"${all_day}"
         )
 
+        echo "start=$start"
+echo "end=$end"
+echo "all_day=$all_day"
+echo "title=$title"
+
     done < <(
         jq -r '
             .items[] |
@@ -360,9 +365,6 @@ gcal_collect() {
         GCAL_ERROR="Unable to synchronize Google Calendar configuration"
         return 1
     }
-
-    
-gcal_get_enabled_calendars
 
     # -------------------------------------------------------------------------
     # Collect events from enabled calendars.

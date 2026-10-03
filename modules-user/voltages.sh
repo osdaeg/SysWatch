@@ -115,7 +115,7 @@ voltages_collect() {
 
         fi
 
-    done <<< "$output"
+    done <<<"$output"
 
 }
 

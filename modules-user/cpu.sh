@@ -20,7 +20,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-30}
 MODULE_ORDER=${MODULE_ORDER:-10}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -50,16 +49,16 @@ cpu_top() {
     while read -r name cpu; do
         if [ "$name" != "ps" ]; then
             CPU_PROCESS+=("$name" "$cpu")
-        fi    
+        fi
     done < <(ps -eo comm:25,%cpu --sort=-%cpu | head -n 10 | tail -n 9)
 }
 
 print_cpu_top() {
     local order=50
-    
-    for ((i=0; i<${#CPU_PROCESS[@]}; i+=2)); do
+
+    for ((i = 0; i < ${#CPU_PROCESS[@]}; i += 2)); do
         #echo -e "${CPU_PROCESS[i]}\t\t${CPU_PROCESS[i+1]}%"
-        sw_state_set "${CPU_PROCESS[i]}"  "${CPU_PROCESS[i+1]}"
+        sw_state_set "${CPU_PROCESS[i]}" "${CPU_PROCESS[i + 1]}"
         sw_state_set "${CPU_PROCESS[i]}.label" "${CPU_PROCESS[i]}"
         sw_state_set "${CPU_PROCESS[i]}.order" "$order"
         sw_state_set "${CPU_PROCESS[i]}.unit" "%"
@@ -77,31 +76,28 @@ cpu_collect() {
 
     read -r _ \
         user1 nice1 system1 idle1 iowait1 irq1 softirq1 steal1 _ \
-        < /proc/stat
+        </proc/stat
 
     sleep "${CPU_SAMPLE_TIME}"
 
     read -r _ \
         user2 nice2 system2 idle2 iowait2 irq2 softirq2 steal2 _ \
-        < /proc/stat
+        </proc/stat
 
-    idle_delta=$(( (idle2 + iowait2) - (idle1 + iowait1) ))
+    idle_delta=$(((idle2 + iowait2) - (idle1 + iowait1)))
 
-    total_delta=$((
+    total_delta=$(((\
+        user2 + nice2 + system2 + idle2 + iowait2 + irq2 + softirq2 + steal2) - (\
+        user1 + nice1 + system1 + idle1 + iowait1 + irq1 + softirq1 + steal1)))
 
-        (user2 + nice2 + system2 + idle2 + iowait2 + irq2 + softirq2 + steal2) -
-        (user1 + nice1 + system1 + idle1 + iowait1 + irq1 + softirq1 + steal1)
-
-    ))
-
-    if (( total_delta == 0 )); then
+    if ((total_delta == 0)); then
 
         CPU_USAGE=0
         return
 
     fi
 
-    CPU_USAGE=$(( (100 * (total_delta - idle_delta)) / total_delta ))
+    CPU_USAGE=$(((100 * (total_delta - idle_delta)) / total_delta))
 
 }
 
@@ -109,15 +105,13 @@ cpu_analyze() {
 
     CPU_STATUS="${SW_STATUS_OK}"
 
-    if (( CPU_USAGE >= CPU_CRITICAL )) &&
-       sw_csv_all_above cpu usage "${CPU_CRITICAL}" "${CPU_SUSTAINED_SAMPLES}"
-    then
+    if ((CPU_USAGE >= CPU_CRITICAL)) &&
+        sw_csv_all_above cpu usage "${CPU_CRITICAL}" "${CPU_SUSTAINED_SAMPLES}"; then
 
         CPU_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif (( CPU_USAGE >= CPU_WARNING )) &&
-         sw_csv_all_above cpu usage "${CPU_WARNING}" "${CPU_SUSTAINED_SAMPLES}"
-    then
+    elif ((CPU_USAGE >= CPU_WARNING)) &&
+        sw_csv_all_above cpu usage "${CPU_WARNING}" "${CPU_SUSTAINED_SAMPLES}"; then
 
         CPU_STATUS="${SW_STATUS_WARNING}"
 
@@ -131,8 +125,8 @@ cpu_update_state() {
 
     sw_state_set cores "$(nproc)"
 
-    sw_state_set load1  "$(cut -d' ' -f1 /proc/loadavg)"
-    sw_state_set load5  "$(cut -d' ' -f2 /proc/loadavg)"
+    sw_state_set load1 "$(cut -d' ' -f1 /proc/loadavg)"
+    sw_state_set load5 "$(cut -d' ' -f2 /proc/loadavg)"
     sw_state_set load15 "$(cut -d' ' -f3 /proc/loadavg)"
 
     # -------------------------------------------------------------------------
@@ -158,7 +152,7 @@ cpu_update_state() {
     sw_state_set "usage.scale" "fixed"
     sw_state_set "usage.min" "0"
     sw_state_set "usage.max" "100"
-    
+
     sw_state_set "cores.label" "$(sw_translate "Cores")"
     sw_state_set "cores.order" "15"
 
@@ -185,9 +179,9 @@ sw_module_run() {
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
     fi
-    
+
     #sw_state_remote "$MODULE_REMOTE"
-    
+
     sw_state_load
 
     cpu_collect
@@ -204,50 +198,48 @@ sw_module_run() {
         "${CPU_USAGE}"
 
     sw_state_save
-    
+
     sw_state_clear
-    
+
     (
-    sw_state_use "top"
-    
-    #sw_state_remote "$MODULE_REMOTE"
-    
-    if [ "$CPU_USAGE" -gt 80 ]; then
-    
-        #sw_state_delete
-        
-        sw_state_reset
-    
-        sw_state_set module_version "${MODULE_VERSION}"
-        sw_state_set "module.label" "$(sw_translate "Processes")"
-        sw_state_set "module.icon" "lucide/rows-4"
-        sw_state_set "module.order" "900"
+        sw_state_use "top"
 
-        
-        cpu_top
-      
-        print_cpu_top
-        
-        sw_state_set "status" "WARNING"
-        
-        if [ "$CPU_USAGE" -gt 95 ]; then
-            sw_state_set "status" "CRITICAL"
+        #sw_state_remote "$MODULE_REMOTE"
+
+        if [ "$CPU_USAGE" -gt 80 ]; then
+
+            #sw_state_delete
+
+            sw_state_reset
+
+            sw_state_set module_version "${MODULE_VERSION}"
+            sw_state_set "module.label" "$(sw_translate "Processes")"
+            sw_state_set "module.icon" "lucide/rows-4"
+            sw_state_set "module.order" "900"
+
+            cpu_top
+
+            print_cpu_top
+
+            sw_state_set "status" "WARNING"
+
+            if [ "$CPU_USAGE" -gt 95 ]; then
+                sw_state_set "status" "CRITICAL"
+            fi
+
+            sw_state_save
+
+        else
+
+            sw_state_delete
+            #sw_state_set "Estado"  " No hay aplicaciones con uso elevado de CPU: ${CPU_USAGE}%"
+            #sw_state_set "Estado.label" "$(sw_translate "Estado:"
+            #sw_state_set "Estado.order" "20"
         fi
-        
-        sw_state_save
 
-    else
-        
-        sw_state_delete
-        #sw_state_set "Estado"  " No hay aplicaciones con uso elevado de CPU: ${CPU_USAGE}%"
-        #sw_state_set "Estado.label" "$(sw_translate "Estado:"
-        #sw_state_set "Estado.order" "20"
-    fi
-    
-    #sw_state_save
+        #sw_state_save
     )
 
-
     cpu_report
-    
+
 }

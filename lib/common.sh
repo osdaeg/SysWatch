@@ -56,6 +56,7 @@ zodiaco=(
     ["Capricornus"]="♑"
     ["Aquarius"]="♒"
     ["Pisces"]="♓"
+    ["Auriga"]=""
     )
 
     if [[ -n "${zodiaco[$signo]}" ]]; then

@@ -27,6 +27,7 @@ MODULE_REMOTE=${MODULE_REMOTE:-""}
 
 source "${HELPERS_DIR}"/gcal.sh
 source "${HELPERS_DIR}"/caldav.sh
+source "${HELPERS_DIR}"/webcal.sh
 
 CALENDAR_EVENTS=()
 CALENDAR_EVENT_COUNT=0
@@ -38,6 +39,67 @@ readonly CALENDAR_MAX_EVENTS="${CALENDAR_MAX_EVENTS:-10}"
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
+
+calendar_expand_all_day_events() {
+
+    local event
+
+    local start
+    local end
+    local title
+    local calendar
+    local all_day
+
+    local today_date
+    local tomorrow_date
+
+    local current_date
+    local next_date
+
+    local -a expanded_events=()
+
+    today_date="$(date +%Y-%m-%d)"
+    tomorrow_date="$(date -d tomorrow +%Y-%m-%d)"
+
+    for event in "${CALENDAR_EVENTS[@]}"; do
+
+        IFS=$'\t' read -r \
+            start \
+            end \
+            title \
+            calendar \
+            all_day <<<"$event"
+
+        if [[ "$all_day" != "true" ]]; then
+
+            expanded_events+=("$event")
+            continue
+
+        fi
+
+        current_date="$start"
+
+        while [[ "$current_date" < "$end" ]]; do
+
+            next_date="$(date -d "$current_date + 1 day" '+%Y-%m-%d')"
+
+            if [[ "$current_date" == "$today_date" ||
+                "$current_date" == "$tomorrow_date" ]]; then
+
+                expanded_events+=(
+                    "${current_date}"$'\t'"${next_date}"$'\t'"${title}"$'\t'"${calendar}"$'\t'"true"
+                )
+
+            fi
+
+            current_date="$next_date"
+
+        done
+
+    done
+
+    CALENDAR_EVENTS=("${expanded_events[@]}")
+}
 
 calendar_update_state() {
 
@@ -88,7 +150,6 @@ calendar_update_state() {
     sw_state_delete_key "error"
     sw_state_delete_key "error.label"
     sw_state_delete_key "error.order"
-
 
     # -------------------------------------------------------------------------
     # Error
@@ -179,6 +240,8 @@ calendar_update_state() {
 
         fi
 
+        echo "event: $title | start: $start | event_date: $event_date | today: $today_date | tomorrow: $tomorrow_date"
+
         # ---------------------------------------------------------------------
         # Create section heading only when the day has events.
         # ---------------------------------------------------------------------
@@ -198,6 +261,8 @@ calendar_update_state() {
                 sw_state_set \
                     "today.order" \
                     "20"
+
+                sw_state_set "today.color" "orange"
 
                 has_today_events=true
 
@@ -224,6 +289,8 @@ calendar_update_state() {
                 sw_state_set \
                     "tomorrow.order" \
                     "300"
+
+                sw_state_set "tomorrow.color" "orange"
 
                 has_tomorrow_events=true
 
@@ -264,19 +331,14 @@ calendar_update_state() {
             "${index}"
 
         ((index++))
-        
 
     done
-
-    
 
     # -------------------------------------------------------------------------
     # Next event summary.
     #
     # The first event returned by Google is the next chronological event.
     # -------------------------------------------------------------------------
-
-    
 
     local first_event
     local next_start
@@ -296,7 +358,8 @@ calendar_update_state() {
 
     sw_state_set "next_header" "----------"
     sw_state_set "next_header.label" "$(sw_translate "Next event")"
-    sw_state_set "next_header.order" "4"    
+    sw_state_set "next_header.order" "4"
+    sw_state_set "next_header.color" "orange"
 
     if [[ "$next_all_day" == "true" ]]; then
 
@@ -308,7 +371,7 @@ calendar_update_state() {
             "next_event.label" \
             "$(sw_translate "All day")"
 
-        sw_state_set "next_event.order" "5"        
+        sw_state_set "next_event.order" "5"
 
     else
 
@@ -383,7 +446,19 @@ calendar_sort_events() {
 
     sorted="$(
         printf '%s\n' "${CALENDAR_EVENTS[@]}" |
-            sort -t $'\t' -k1,1
+            awk -F '\t' '
+                {
+                    if ($5 == "true") {
+                        order = substr($1, 1, 10) " 1 00:00:00"
+                    } else {
+                        order = substr($1, 1, 10) " 0 " substr($1, 12)
+                    }
+
+                    print order "\t" $0
+                }
+            ' |
+            sort -t $'\t' -k1,1 |
+            cut -f2-
     )"
 
     CALENDAR_EVENTS=()
@@ -473,14 +548,19 @@ sw_module_run() {
 
     sw_state_load
 
-    #caldav_collect
-
+    caldav_collect
+    
+    webcal_collect
+    
     gcal_collect
 
     CALENDAR_EVENTS=(
         "${GCAL_EVENTS[@]}"
         "${CALDAV_EVENTS[@]}"
+        "${WEBCAL_EVENTS[@]}"
     )
+
+    calendar_expand_all_day_events
 
     CALENDAR_EVENT_COUNT="${#CALENDAR_EVENTS[@]}"
 
@@ -495,4 +575,3 @@ sw_module_run() {
 
     calendar_report
 }
-

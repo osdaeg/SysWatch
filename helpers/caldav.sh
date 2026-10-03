@@ -13,8 +13,6 @@
 # Configuration
 # -----------------------------------------------------------------------------
 
-
-
 # -----------------------------------------------------------------------------
 # Backend variables
 # -----------------------------------------------------------------------------
@@ -24,48 +22,152 @@ CALDAV_EVENTS=()
 CALDAV_EVENT_COUNT=0
 CALDAV_ERROR=""
 
+CALDAV_WEBCAL_SOURCES=()
+CALDAV_CALENDARS=()
+
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
 
-caldav_collect() {
-    CALDAV_STATUS="${SW_STATUS_UNKNOWN}"
-    CALDAV_ERROR=""
-    CALDAV_EVENTS=()
-    CALDAV_EVENT_COUNT=0
+caldav_discover_calendars() {
 
+    local response
 
+    CALDAV_WEBCAL_SOURCES=()
+    CALDAV_CALENDARS=()
 
-    # -------------------------------------------------------------------------
-    # Validate configuration
-    # -------------------------------------------------------------------------
+    response="$(
+        curl -fsS \
+            --max-time 15 \
+            -u "${CALDAV_USERNAME}:${CALDAV_PASSWORD}" \
+            -X PROPFIND \
+            -H 'Content-Type: application/xml; charset=utf-8' \
+            -H 'Depth: 1' \
+            --data-binary @- \
+            "$CALDAV_URL" <<'EOF'
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propfind xmlns:D="DAV:"
+    xmlns:C="urn:ietf:params:xml:ns:caldav"
+    xmlns:CS="http://calendarserver.org/ns/">
 
-    if [[ -z "$CALDAV_URL" ||
-        -z "$CALDAV_USERNAME" ||
-        -z "$CALDAV_PASSWORD" ]]; then
+    <D:prop>
+        <D:resourcetype/>
+        <D:displayname/>
+        <C:supported-calendar-component-set/>
+        <CS:source/>
+    </D:prop>
 
-        CALDAV_ERROR="CalDAV credentials are not configured"
+</D:propfind>
+EOF
+    )" || {
+
+        CALDAV_ERROR="Unable to discover CalDAV calendars"
+        return 1
+    }
+
+    if ! xmllint --noout - >/dev/null 2>&1 <<<"$response"; then
+
+        CALDAV_ERROR="Invalid CalDAV discovery response"
         return 1
 
     fi
 
-    # -------------------------------------------------------------------------
-    # Required commands
-    # -------------------------------------------------------------------------
+    local response_count
+    local i
 
-    if ! command -v curl >/dev/null 2>&1; then
+    response_count="$(
+        xmllint \
+            --xpath \
+            'count(//*[local-name()="response"])' \
+            - \
+            <<<"$response" \
+            2>/dev/null
+    )"
 
-        CALDAV_ERROR="curl is not available"
-        return 1
+    for ((i = 1; i <= response_count; i++)); do
 
-    fi
+        local href
+        local displayname
+        local is_calendar
+        local is_subscribed
+        local has_vevent
+        local source
 
-    if ! command -v xmllint >/dev/null 2>&1; then
+        href="$(
+            xmllint \
+                --xpath \
+                "string((//*[local-name()='response'])[${i}]/*[local-name()='href'])" \
+                - \
+                <<<"$response" \
+                2>/dev/null
+        )"
 
-        CALDAV_ERROR="xmllint is not available"
-        return 1
+        displayname="$(
+            xmllint \
+                --xpath \
+                "string((//*[local-name()='response'])[${i}]//*[local-name()='displayname'])" \
+                - \
+                <<<"$response" \
+                2>/dev/null
+        )"
 
-    fi
+        is_calendar="$(
+            xmllint \
+                --xpath \
+                "count((//*[local-name()='response'])[${i}]//*[local-name()='resourcetype']/*[local-name()='calendar'])" \
+                - \
+                <<<"$response" \
+                2>/dev/null
+        )"
+
+        is_subscribed="$(
+            xmllint \
+                --xpath \
+                "count((//*[local-name()='response'])[${i}]//*[local-name()='resourcetype']/*[local-name()='subscribed'])" \
+                - \
+                <<<"$response" \
+                2>/dev/null
+        )"
+
+        has_vevent="$(
+            xmllint \
+                --xpath \
+                "count((//*[local-name()='response'])[${i}]//*[local-name()='supported-calendar-component-set']/*[local-name()='comp'][@name='VEVENT'])" \
+                - \
+                <<<"$response" \
+                2>/dev/null
+        )"
+
+        source="$(
+            xmllint \
+                --xpath \
+                "string((//*[local-name()='response'])[${i}]//*[local-name()='source']/*[local-name()='href'])" \
+                - \
+                <<<"$response" \
+                2>/dev/null
+        )"
+
+        if [[ "$is_calendar" -gt 0 && "$has_vevent" -gt 0 ]]; then
+
+            CALDAV_CALENDARS+=(
+                 "calendar"$'\t'"${href}"$'\t'"${displayname}"
+            )
+
+        elif [[ "$is_subscribed" -gt 0 && -n "$source" ]]; then
+
+            CALDAV_WEBCAL_SOURCES+=(
+                "${displayname}"$'\t'"${source}"
+            )
+
+        fi
+
+    done
+    
+}
+
+caldav_collect_calendar() {
+
+    local calendar_url="$1"
 
     # -------------------------------------------------------------------------
     # Build time range.
@@ -85,7 +187,8 @@ caldav_collect() {
 
     local report_body
 
-    report_body="$(cat <<EOF
+    report_body="$(
+        cat <<EOF
 <?xml version="1.0" encoding="utf-8" ?>
 <C:calendar-query
     xmlns:D="DAV:"
@@ -108,7 +211,7 @@ caldav_collect() {
 
 </C:calendar-query>
 EOF
-)"
+    )"
 
     # -------------------------------------------------------------------------
     # Query CalDAV server.
@@ -124,10 +227,10 @@ EOF
             -H 'Content-Type: application/xml; charset=utf-8' \
             -H 'Depth: 1' \
             --data-binary "$report_body" \
-            "$CALDAV_URL"
+            "${CALDAV_URL%/*}${calendar_url}"
     )" || {
 
-        CALDAV_ERROR="Unable to query CalDAV server"
+        CALDAV_ERROR="Unable to query CalDAV calendar"
         return 1
     }
 
@@ -188,10 +291,80 @@ EOF
 
     done
 
+}
+
+caldav_get_calendars() {
+    printf '%s\n' "${CALDAV_CALENDARS[@]}"
+}
+
+caldav_collect() {
+    CALDAV_STATUS="${SW_STATUS_UNKNOWN}"
+    CALDAV_ERROR=""
+    CALDAV_EVENTS=()
+    CALDAV_EVENT_COUNT=0
+    
+    # -------------------------------------------------------------------------
+    # Validate configuration
+    # -------------------------------------------------------------------------
+
+    if [[ -z "$CALDAV_URL" ||
+        -z "$CALDAV_USERNAME" ||
+        -z "$CALDAV_PASSWORD" ]]; then
+
+        CALDAV_ERROR="CalDAV credentials are not configured"
+        return 1
+
+    fi
+
+    # -------------------------------------------------------------------------
+    # Required commands
+    # -------------------------------------------------------------------------
+
+    if ! command -v curl >/dev/null 2>&1; then
+
+        CALDAV_ERROR="curl is not available"
+        return 1
+
+    fi
+
+    if ! command -v xmllint >/dev/null 2>&1; then
+
+        CALDAV_ERROR="xmllint is not available"
+        return 1
+
+    fi
+
+    # -------------------------------------------------------------------------
+    # Discover calendars.
+    # -------------------------------------------------------------------------
+
+    local calendars
+
+    caldav_discover_calendars || return 1
+
+    calendars="$(caldav_get_calendars)" || return 1
+
+    # -------------------------------------------------------------------------
+    # Collect events from CalDAV calendars.
+    # -------------------------------------------------------------------------
+
+    local type
+    local href
+    local displayname
+
+    while IFS=$'\t' read -r type href displayname; do
+
+        [[ "$type" == "calendar" ]] || continue
+
+        caldav_collect_calendar "$href" || return 1
+
+    done <<<"$calendars"
+
     CALDAV_EVENT_COUNT="${#CALDAV_EVENTS[@]}"
     CALDAV_STATUS="${SW_STATUS_OK}"
 
     return 0
+
 }
 
 # -----------------------------------------------------------------------------
@@ -212,7 +385,7 @@ caldav_parse_event() {
     local previous=""
 
     local start_tz=""
-local end_tz=""
+    local end_tz=""
 
     # -------------------------------------------------------------------------
     # Unfold iCalendar lines.
@@ -247,54 +420,54 @@ local end_tz=""
     # Extract VEVENT properties.
     # -------------------------------------------------------------------------
 
-        # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Extract VEVENT properties.
     #
     # Ignore VTIMEZONE and any other VCALENDAR components. Only properties
     # belonging to VEVENT are relevant here.
     # -------------------------------------------------------------------------
-        local in_vevent=false
+    local in_vevent=false
 
     while IFS= read -r line; do
         case "$line" in
-            BEGIN:VEVENT)
-                in_vevent=true
-                ;;
+        BEGIN:VEVENT)
+            in_vevent=true
+            ;;
 
-            END:VEVENT)
-                in_vevent=false
-                ;;
+        END:VEVENT)
+            in_vevent=false
+            ;;
 
-            *)
-                [[ "$in_vevent" == true ]] || continue
+        *)
+            [[ "$in_vevent" == true ]] || continue
 
-                if [[ "$line" == DTSTART\;VALUE=DATE:* ]]; then
-                    start="${line#*:}"
-                    all_day="true"
+            if [[ "$line" == DTSTART\;VALUE=DATE:* ]]; then
+                start="${line#*:}"
+                all_day="true"
 
-                elif [[ "$line" == DTSTART\;TZID=* ]]; then
-                    start="${line#*:}"
-                    start_tz="${line#*TZID=}"
-                    start_tz="${start_tz%%:*}"
+            elif [[ "$line" == DTSTART\;TZID=* ]]; then
+                start="${line#*:}"
+                start_tz="${line#*TZID=}"
+                start_tz="${start_tz%%:*}"
 
-                elif [[ "$line" == DTSTART:* ]]; then
-                    start="${line#*:}"
+            elif [[ "$line" == DTSTART:* ]]; then
+                start="${line#*:}"
 
-                elif [[ "$line" == DTEND\;VALUE=DATE:* ]]; then
-                    end="${line#*:}"
+            elif [[ "$line" == DTEND\;VALUE=DATE:* ]]; then
+                end="${line#*:}"
 
-                elif [[ "$line" == DTEND\;TZID=* ]]; then
-                    end="${line#*:}"
-                    end_tz="${line#*TZID=}"
-                    end_tz="${end_tz%%:*}"
+            elif [[ "$line" == DTEND\;TZID=* ]]; then
+                end="${line#*:}"
+                end_tz="${line#*TZID=}"
+                end_tz="${end_tz%%:*}"
 
-                elif [[ "$line" == DTEND:* ]]; then
-                    end="${line#*:}"
+            elif [[ "$line" == DTEND:* ]]; then
+                end="${line#*:}"
 
-                elif [[ "$line" == SUMMARY:* ]]; then
-                    title="${line#*:}"
-                fi
-                ;;
+            elif [[ "$line" == SUMMARY:* ]]; then
+                title="${line#*:}"
+            fi
+            ;;
         esac
     done <<<"$unfolded"
 
@@ -331,9 +504,8 @@ local end_tz=""
 
     else
 
-        
-normalized_start="$(caldav_normalize_datetime "$start" "$start_tz")" || return
-normalized_end="$(caldav_normalize_datetime "$end" "$end_tz")" || return
+        normalized_start="$(caldav_normalize_datetime "$start" "$start_tz")" || return
+        normalized_end="$(caldav_normalize_datetime "$end" "$end_tz")" || return
     fi
 
     # -------------------------------------------------------------------------
@@ -355,7 +527,7 @@ normalized_end="$(caldav_normalize_datetime "$end" "$end_tz")" || return
 # -----------------------------------------------------------------------------
 
 caldav_normalize_datetime() {
-    
+
     local timezone="${2:-}"
 
     local value="$1"
@@ -363,7 +535,7 @@ caldav_normalize_datetime() {
     local timestamp
     local datetime
 
-        if [[ -n "$timezone" && "$value" =~ ^[0-9]{8}T[0-9]{6}$ ]]; then
+    if [[ -n "$timezone" && "$value" =~ ^[0-9]{8}T[0-9]{6}$ ]]; then
         local timestamp
 
         timestamp="$(

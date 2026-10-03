@@ -23,7 +23,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-660}
 MODULE_ORDER=${MODULE_ORDER:-1000}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -77,41 +76,41 @@ moon_format_date() {
 moon_phase_name() {
 
     case "$1" in
-        "New Moon")
-            echo "🌑 $(sw_translate "New Moon")"
-            ;;
+    "New Moon")
+        echo "🌑 $(sw_translate "New Moon")"
+        ;;
 
-        "Waxing Crescent")
-            echo "🌒 $(sw_translate "Waxing Crescent")"
-            ;;
+    "Waxing Crescent")
+        echo "🌒 $(sw_translate "Waxing Crescent")"
+        ;;
 
-        "First Quarter")
-            echo "🌓 $(sw_translate "First Quarter")"
-            ;;
+    "First Quarter")
+        echo "🌓 $(sw_translate "First Quarter")"
+        ;;
 
-        "Waxing Gibbous")
-            echo "🌔 $(sw_translate "Waxing Gibbous")"
-            ;;
+    "Waxing Gibbous")
+        echo "🌔 $(sw_translate "Waxing Gibbous")"
+        ;;
 
-        "Full Moon")
-            echo "🌕 $(sw_translate "Full Moon")"
-            ;;
+    "Full Moon")
+        echo "🌕 $(sw_translate "Full Moon")"
+        ;;
 
-        "Waning Gibbous")
-            echo "🌖 $(sw_translate "Waning Gibbous")"
-            ;;
+    "Waning Gibbous")
+        echo "🌖 $(sw_translate "Waning Gibbous")"
+        ;;
 
-        "Last Quarter")
-            echo "🌗 $(sw_translate "Last Quarter")"
-            ;;
+    "Last Quarter")
+        echo "🌗 $(sw_translate "Last Quarter")"
+        ;;
 
-        "Waning Crescent")
-            echo "🌘 $(sw_translate "Waning Crescent")"
-            ;;
+    "Waning Crescent")
+        echo "🌘 $(sw_translate "Waning Crescent")"
+        ;;
 
-        *)
-            echo "$1"
-            ;;
+    *)
+        echo "$1"
+        ;;
     esac
 
 }
@@ -119,36 +118,35 @@ moon_phase_name() {
 moon_phase_image() {
 
     case "$1" in
-        "New Moon") echo "new_moon.png" ;;
-        "Waxing Crescent") echo "waxing_crescent.png" ;;
-        "First Quarter") echo "first_quarter.png" ;;
-        "Waxing Gibbous") echo "waxing_gibbous.png" ;;
-        "Full Moon") echo "full_moon.png" ;;
-        "Waning Gibbous") echo "waning_gibbous.png" ;;
-        "Last Quarter") echo "last_quarter.png" ;;
-        "Waning Crescent") echo "waning_crescent.png" ;;
-        *) echo "unknown.png" ;;
+    "New Moon") echo "new_moon.png" ;;
+    "Waxing Crescent") echo "waxing_crescent.png" ;;
+    "First Quarter") echo "first_quarter.png" ;;
+    "Waxing Gibbous") echo "waxing_gibbous.png" ;;
+    "Full Moon") echo "full_moon.png" ;;
+    "Waning Gibbous") echo "waning_gibbous.png" ;;
+    "Last Quarter") echo "last_quarter.png" ;;
+    "Waning Crescent") echo "waning_crescent.png" ;;
+    *) echo "unknown.png" ;;
     esac
 
 }
 
 moon_event_name() {
     case "$1" in
-        penumbral_lunar_eclipse)
-            echo "$(sw_translate "Penumbral lunar eclipse")"
-            ;;
-        partial_lunar_eclipse)
-            echo "$(sw_translate "Partial lunar eclipse")"
-            ;;
-        total_lunar_eclipse)
-            echo "$(sw_translate "Total lunar eclipse")"
-            ;;
-        *)
-            echo "$1"
-            ;;
+    penumbral_lunar_eclipse)
+        echo "$(sw_translate "Penumbral lunar eclipse")"
+        ;;
+    partial_lunar_eclipse)
+        echo "$(sw_translate "Partial lunar eclipse")"
+        ;;
+    total_lunar_eclipse)
+        echo "$(sw_translate "Total lunar eclipse")"
+        ;;
+    *)
+        echo "$1"
+        ;;
     esac
 }
-
 
 moon_fetch() {
 
@@ -163,8 +161,8 @@ moon_fetch() {
         sw_cache_download \
             "${MOON_CACHE}" \
             "${url}?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}&elevation=0&from_date=$(date +%F)&to_date=$(date +%F)&time=$(date +%T)" \
-            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" \
-            || return 1
+            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" ||
+            return 1
 
     fi
 
@@ -177,8 +175,8 @@ moon_fetch() {
         sw_cache_download \
             "${MOON_EVENTS_CACHE}" \
             "${url}?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}&elevation=0&from_date=$(date +%F)&to_date=$(date -d '+30 days' +%F)&time=$(date +%H%%3A%M%%3A%S)" \
-            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" \
-            || return 1
+            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" ||
+            return 1
 
     fi
 
@@ -191,8 +189,8 @@ moon_fetch() {
         sw_cache_download \
             "${SUN_CACHE}" \
             "${url}?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}&elevation=0&from_date=$(date +%F)&to_date=$(date +%F)&time=$(date +%T)" \
-            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" \
-            || return 1
+            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" ||
+            return 1
 
     fi
 
@@ -205,8 +203,8 @@ moon_fetch() {
         sw_cache_download \
             "${SUN_EVENTS_CACHE}" \
             "${url}?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}&elevation=0&from_date=$(date +%F)&to_date=$(date -d '+365 days' +%F)&time=$(date +%H%%3A%M%%3A%S)" \
-            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" \
-            || return 1
+            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" ||
+            return 1
 
     fi
 
@@ -228,8 +226,8 @@ moon_analyze_position() {
         MOON_DEC \
         MOON_MAGNITUDE \
         MOON_ELONGATION \
-    <<<"$(
-        jq -r '
+        <<<"$(
+            jq -r '
         .data.table.rows[0].cells[0] |
         [
             .extraInfo.phase.string,
@@ -243,7 +241,7 @@ moon_analyze_position() {
             .extraInfo.elongation
         ] | join("|")
         ' "${file}"
-    )" || return 1
+        )" || return 1
 
     MOON_DISTANCE_KM="${MOON_DISTANCE%.*}"
     MOON_DISTANCE="$(sw_format_number "${MOON_DISTANCE_KM}")"
@@ -273,8 +271,8 @@ moon_analyze_events() {
         MOON_RISE \
         MOON_SET \
         MOON_OBSCURATION \
-    <<<"$(
-        jq -r '
+        <<<"$(
+            jq -r '
         .data.table.rows[0].cells[0] |
         [
             .type,
@@ -284,7 +282,7 @@ moon_analyze_events() {
             .extraInfo.obscuration
         ] | join("|")
         ' "${file}"
-    )" || return 1
+        )" || return 1
 
 }
 
@@ -296,8 +294,8 @@ moon_update_status() {
     MOON_SUPER=""
 
     MOON_STATUS="${SW_STATUS_OK}"
-    
-    if (( MOON_DISTANCE_KM <= 360000 )) && [[ "$MOON_PHASE" == "Full Moon" ]]; then
+
+    if ((MOON_DISTANCE_KM <= 360000)) && [[ "$MOON_PHASE" == "Full Moon" ]]; then
         MOON_SUPER="$(sw_translate "Supermoon")"
         MOON_STATUS="${SW_STATUS_INFO}"
     fi
@@ -310,8 +308,7 @@ moon_update_status() {
             MOON_STATUS="${SW_STATUS_CRITICAL}"
         fi
     fi
-    
-    
+
 }
 
 moon_analyze() {
@@ -336,8 +333,8 @@ moon_update_state() {
     sw_state_set "phase.label" "$(sw_translate "Phase")"
     sw_state_set "phase.order" "10"
 
-    echo "${MOON_PHASE}" >> ~/scripts/syswatch/fases.txt
-    
+    echo "${MOON_PHASE}" >>~/scripts/syswatch/fases.txt
+
     if [[ -n "${MOON_SUPER}" ]]; then
         sw_state_set "size" "${MOON_SUPER}"
         sw_state_set "size.label" "$(sw_translate "Size")"
@@ -348,8 +345,8 @@ moon_update_state() {
         sw_state_set "size.label" "$(sw_translate "Size")"
         sw_state_set "size.order" "15"
         sw_state_set "size.hidden" "true"
-    fi    
-    
+    fi
+
     sw_state_set "constellation" "$(sw_zodiac_emoji ${MOON_CONSTELLATION}) $MOON_CONSTELLATION"
     sw_state_set "constellation.label" "$(sw_translate "Constellation")"
     sw_state_set "constellation.order" "20"
@@ -384,7 +381,7 @@ moon_update_state() {
         sw_state_set "next_event.hidden" "true"
         sw_state_set "next_event_date.hidden" "true"
     fi
-    
+
     sw_state_set "image" "$(moon_phase_image "${MOON_PHASE}")"
 
     sw_state_set "image.label" " "
@@ -415,8 +412,6 @@ moon_update_state() {
     sw_state_set "obscuration.hidden" "true"
 
 }
-
-
 
 moon_report() {
 

@@ -20,7 +20,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-86400}
 MODULE_ORDER=${MODULE_ORDER:-1300}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -68,7 +67,7 @@ cert_collect() {
 
     local entry
 
-    IFS=';' read -ra CERT_LIST <<< "${CERT_HOSTS}"
+    IFS=';' read -ra CERT_LIST <<<"${CERT_HOSTS}"
 
     for entry in "${CERT_LIST[@]}"; do
 
@@ -89,9 +88,9 @@ cert_collect() {
         cert_date="$(
             timeout 10 \
                 openssl s_client \
-                    -connect "${host}:${port}" \
-                    -servername "${host}" \
-                    </dev/null 2>/dev/null |
+                -connect "${host}:${port}" \
+                -servername "${host}" \
+                </dev/null 2>/dev/null |
                 openssl x509 -noout -enddate 2>/dev/null
         )"
 
@@ -113,18 +112,17 @@ cert_collect() {
 
         now_epoch="$(date +%s)"
 
-        remaining_days=$(( (expiry_epoch - now_epoch) / 86400 ))
+        remaining_days=$(((expiry_epoch - now_epoch) / 86400))
 
-
-        if (( remaining_days < 0 )); then
-
-            CERT_CRITICAL=$((CERT_CRITICAL + 1))
-
-        elif (( remaining_days <= CERT_CRITICAL_DAYS )); then
+        if ((remaining_days < 0)); then
 
             CERT_CRITICAL=$((CERT_CRITICAL + 1))
 
-        elif (( remaining_days <= CERT_WARNING_DAYS )); then
+        elif ((remaining_days <= CERT_CRITICAL_DAYS)); then
+
+            CERT_CRITICAL=$((CERT_CRITICAL + 1))
+
+        elif ((remaining_days <= CERT_WARNING_DAYS)); then
 
             CERT_WARNING=$((CERT_WARNING + 1))
 
@@ -142,15 +140,15 @@ cert_analyze() {
 
     CERT_STATUS="${SW_STATUS_OK}"
 
-    if (( CERT_CRITICAL > 0 )); then
+    if ((CERT_CRITICAL > 0)); then
 
         CERT_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif (( CERT_WARNING > 0 )); then
+    elif ((CERT_WARNING > 0)); then
 
         CERT_STATUS="${SW_STATUS_WARNING}"
 
-    elif (( CERT_OK == 0 )); then
+    elif ((CERT_OK == 0)); then
 
         CERT_STATUS="${SW_STATUS_DISABLED}"
 
@@ -197,7 +195,7 @@ cert_report() {
 sw_module_run() {
 
     sw_require_command openssl || return 1
-    
+
     sw_state_use "cert"
 
     #sw_state_remote "HOGAR-PC-Linux"

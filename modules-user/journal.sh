@@ -120,14 +120,14 @@ journal_collect() {
     # source of truth for the journal.
     # -------------------------------------------------------------------------
 
-        local parsed
+    local parsed
 
     parsed=$(
         printf '%s\n' "$journal_output" |
             JOURNAL_PRIORITY_FILTER="$JOURNAL_PRIORITY_FILTER" \
-            JOURNAL_PATTERN_FILTER="$JOURNAL_PATTERN_FILTER" \
-            JOURNAL_MESSAGE_FILTER="$JOURNAL_MESSAGE_FILTER" \
-            python3 -c '
+                JOURNAL_PATTERN_FILTER="$JOURNAL_PATTERN_FILTER" \
+                JOURNAL_MESSAGE_FILTER="$JOURNAL_MESSAGE_FILTER" \
+                python3 -c '
 import sys
 import json
 import re

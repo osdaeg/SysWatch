@@ -23,7 +23,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-660}
 MODULE_ORDER=${MODULE_ORDER:-1001}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -79,21 +78,20 @@ sun_format_date() {
 
 sun_event_name() {
     case "$1" in
-        partial_solar_eclipse)
-            echo "$(sw_translate "Partial solar eclipse")"
-            ;;
-        annular_solar_eclipse)
-            echo "$(sw_translate "Annular solar eclipse")"
-            ;;    
-        total_solar_eclipse)
-            echo "$(sw_translate "Total solar eclipse")"
-            ;;
-        *)
-            echo "$1"
-            ;;
+    partial_solar_eclipse)
+        echo "$(sw_translate "Partial solar eclipse")"
+        ;;
+    annular_solar_eclipse)
+        echo "$(sw_translate "Annular solar eclipse")"
+        ;;
+    total_solar_eclipse)
+        echo "$(sw_translate "Total solar eclipse")"
+        ;;
+    *)
+        echo "$1"
+        ;;
     esac
 }
-
 
 sun_fetch() {
 
@@ -108,8 +106,8 @@ sun_fetch() {
         sw_cache_download \
             "${SUN_CACHE}" \
             "${url}?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}&elevation=0&from_date=$(date +%F)&to_date=$(date +%F)&time=$(date +%T)" \
-            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" \
-            || return 1
+            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" ||
+            return 1
 
     fi
 
@@ -122,8 +120,8 @@ sun_fetch() {
         sw_cache_download \
             "${SUN_EVENTS_CACHE}" \
             "${url}?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}&elevation=0&from_date=$(date +%F)&to_date=$(date -d '+365 days' +%F)&time=$(date +%H%%3A%M%%3A%S)" \
-            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" \
-            || return 1
+            --user "${ASTRONOMY_API_ID}:${ASTRONOMY_API_SECRET}" ||
+            return 1
 
     fi
 
@@ -135,10 +133,10 @@ sun_fetch() {
 
         sw_cache_download \
             "${SUN_IMAGE_CACHE}" \
-            "${url}" \
-            || return 1
+            "${url}" ||
+            return 1
 
-        cp "$(sw_cache_file "${SUN_IMAGE_CACHE}")" "${HTML_DIR}/images/sol.jpg"    
+        cp "$(sw_cache_file "${SUN_IMAGE_CACHE}")" "${HTML_DIR}/images/sol.jpg"
 
     fi
 
@@ -159,8 +157,8 @@ sun_analyze_position() {
         SUN_DEC \
         SUN_MAGNITUDE \
         SUN_ELONGATION \
-    <<<"$(
-        jq -r '
+        <<<"$(
+            jq -r '
         .data.table.rows[0].cells[0] |
         [
             .position.constellation.name,
@@ -173,7 +171,7 @@ sun_analyze_position() {
             .extraInfo.elongation
         ] | join("|")
         ' "${file}"
-    )" || return 1
+        )" || return 1
 
     SUN_DISTANCE_KM="${SUN_DISTANCE%.*}"
     SUN_DISTANCE="$(sw_format_number "${SUN_DISTANCE_KM}")"
@@ -203,8 +201,8 @@ sun_analyze_events() {
         SUN_RISE \
         SUN_SET \
         SUN_OBSCURATION \
-    <<<"$(
-        jq -r '
+        <<<"$(
+            jq -r '
         .data.table.rows[0].cells[0] |
         [
             .type,
@@ -214,7 +212,7 @@ sun_analyze_events() {
             .extraInfo.obscuration
         ] | join("|")
         ' "${file}"
-    )" || return 1
+        )" || return 1
 
 }
 
@@ -233,8 +231,7 @@ sun_update_status() {
             SUN_STATUS="${SW_STATUS_CRITICAL}"
         fi
     fi
-    
-    
+
 }
 
 sun_analyze() {
@@ -254,7 +251,7 @@ sun_update_state() {
     sw_state_set "module.icon" "lucide/sun"
     sw_state_set "module.label" "$(sw_translate "Sun")"
     sw_state_set "module.order" "$MODULE_ORDER"
-    
+
     sw_state_set "constellation" "$(sw_zodiac_emoji $SUN_CONSTELLATION) ${SUN_CONSTELLATION}"
     sw_state_set "constellation.label" "$(sw_translate "Constellation")"
     sw_state_set "constellation.order" "20"
@@ -289,7 +286,7 @@ sun_update_state() {
         sw_state_set "next_event.hidden" "true"
         sw_state_set "next_event_date.hidden" "true"
     fi
-    
+
     sw_state_set "image" "sol.jpg"
 
     sw_state_set "image.label" " "
@@ -320,8 +317,6 @@ sun_update_state() {
     sw_state_set "obscuration.hidden" "true"
 
 }
-
-
 
 sun_report() {
 

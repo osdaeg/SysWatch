@@ -83,6 +83,8 @@ sw_run_module() {
         if sw_module_should_run "${MODULE_NAME}" "${MODULE_INTERVAL}"
         then
 
+            echo "${module}" >> /home/daniel/scripts/syswatch/secuencia_modulos.txt
+
             sw_module_run
 
             sw_module_touch "${MODULE_NAME}"
@@ -112,6 +114,8 @@ sw_run_modules() {
 
     local module
     local count=0
+
+    echo "$(date +"%d/%m/%Y %H:%M:%S")" >> /home/daniel/scripts/syswatch/secuencia_modulos.txt
 
     while IFS= read -r module; do
 

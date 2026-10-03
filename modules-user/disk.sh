@@ -20,7 +20,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-300}
 MODULE_ORDER=${MODULE_ORDER:-40}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -117,8 +116,7 @@ disk_discover() {
     DISK_AVAIL=()
     DISK_USE_PCT=()
 
-    while read -r fs fstype blocks used avail pct mountpoint
-    do
+    while read -r fs fstype blocks used avail pct mountpoint; do
 
         [[ "${fs}" == "Filesystem" ]] && continue
 
@@ -126,10 +124,10 @@ disk_discover() {
         # reliable across distros than trying to enumerate every fstype.
         case "${mountpoint}" in
 
-            /proc*|/sys*|/dev*|/run*|/snap*)
+        /proc* | /sys* | /dev* | /run* | /snap*)
 
-                continue
-                ;;
+            continue
+            ;;
 
         esac
 
@@ -148,9 +146,9 @@ disk_discover() {
         DISK_FSTYPE+=("${fstype}")
 
         # 1024-blocks -> bytes
-        DISK_TOTAL+=("$(( blocks * 1024 ))")
-        DISK_USED+=("$(( used * 1024 ))")
-        DISK_AVAIL+=("$(( avail * 1024 ))")
+        DISK_TOTAL+=("$((blocks * 1024))")
+        DISK_USED+=("$((used * 1024))")
+        DISK_AVAIL+=("$((avail * 1024))")
         DISK_USE_PCT+=("${pct%\%}")
 
     done < <(LC_ALL=C df -P -k -T -x tmpfs -x devtmpfs -x overlay -x squashfs 2>/dev/null)
@@ -171,23 +169,20 @@ disk_analyze() {
     local pct
     local key
 
-    for (( i=0; i<${#DISK_KEYS[@]}; i++ ))
-    do
+    for ((i = 0; i < ${#DISK_KEYS[@]}; i++)); do
 
         pct="${DISK_USE_PCT[$i]}"
         key="${DISK_KEYS[$i]}"
 
         DISK_STATUS[$i]="${SW_STATUS_OK}"
 
-        if (( pct >= DISK_CRITICAL )) &&
-           sw_csv_all_above "${key}" used_pct "${DISK_CRITICAL}" "${DISK_SUSTAINED_SAMPLES}"
-        then
+        if ((pct >= DISK_CRITICAL)) &&
+            sw_csv_all_above "${key}" used_pct "${DISK_CRITICAL}" "${DISK_SUSTAINED_SAMPLES}"; then
 
             DISK_STATUS[$i]="${SW_STATUS_CRITICAL}"
 
-        elif (( pct >= DISK_WARNING )) &&
-             sw_csv_all_above "${key}" used_pct "${DISK_WARNING}" "${DISK_SUSTAINED_SAMPLES}"
-        then
+        elif ((pct >= DISK_WARNING)) &&
+            sw_csv_all_above "${key}" used_pct "${DISK_WARNING}" "${DISK_SUSTAINED_SAMPLES}"; then
 
             DISK_STATUS[$i]="${SW_STATUS_WARNING}"
 
@@ -202,7 +197,7 @@ disk_update_state() {
     local i
     local key
 
-    for (( i=0; i<${#DISK_KEYS[@]}; i++ )); do
+    for ((i = 0; i < ${#DISK_KEYS[@]}; i++)); do
 
         key="${DISK_KEYS[$i]}"
 
@@ -271,7 +266,7 @@ disk_report() {
     local i
     local summary=""
 
-    for (( i=0; i<${#DISK_KEYS[@]}; i++ )); do
+    for ((i = 0; i < ${#DISK_KEYS[@]}; i++)); do
 
         summary+="${DISK_MOUNTPOINT[$i]}=${DISK_USE_PCT[$i]}% (${DISK_STATUS[$i]}) "
 

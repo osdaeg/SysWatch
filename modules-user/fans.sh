@@ -81,7 +81,7 @@ fans_collect() {
 
         fi
 
-    done <<< "$output"
+    done <<<"$output"
 
 }
 
@@ -135,7 +135,7 @@ fans_update_state() {
 
     for fan in "${FANS_DATA[@]}"; do
 
-        IFS='|' read -r fan_name fan_value fan_alarm <<< "$fan"
+        IFS='|' read -r fan_name fan_value fan_alarm <<<"$fan"
 
         sw_state_set \
             "fan.${fan_name}" \
@@ -145,18 +145,18 @@ fans_update_state() {
             "fan.${fan_name}.label" \
             "${fan_name}"
 
-        if [ "$fan_value" == "0" ]; then    
+        if [ "$fan_value" == "0" ]; then
 
             sw_state_set \
                 "fan.${fan_name}.widget" \
                 "value"
-            
+
         else
 
             sw_state_set \
                 "fan.${fan_name}.widget" \
                 "line"
-        fi    
+        fi
 
         sw_state_set \
             "fan.${fan_name}.unit" \
@@ -174,7 +174,7 @@ fans_update_state() {
 
             sw_state_set \
                 "fan.${fan_name}.alarm.label" \
-                "fan ${fan_name} Alarm"    
+                "fan ${fan_name} Alarm"
 
         fi
 
@@ -203,7 +203,7 @@ fans_report() {
 
     for fan in "${FANS_DATA[@]}"; do
 
-        IFS='|' read -r fan_name fan_value fan_alarm <<< "$fan"
+        IFS='|' read -r fan_name fan_value fan_alarm <<<"$fan"
 
         message+=" | ${fan_name}: ${fan_value} RPM"
 
@@ -253,7 +253,7 @@ sw_module_run() {
 
     for fan in "${FANS_DATA[@]}"; do
 
-        IFS='|' read -r fan_name fan_value fan_alarm <<< "$fan"
+        IFS='|' read -r fan_name fan_value fan_alarm <<<"$fan"
 
         sw_csv_append \
             "fans" \

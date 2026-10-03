@@ -20,7 +20,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-180}
 MODULE_ORDER=${MODULE_ORDER:-1200}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
@@ -29,7 +28,6 @@ AIRCRAFT_RADAR_STATUS="${SW_STATUS_UNKNOWN}"
 AIRCRAFT_BASE_MAP="aircraft_map_base_${WEATHER_LAT}_${WEATHER_LON}.png"
 
 MODULE_INTERVAL_IF_AIRCRAFTS=30
-
 
 aircraft_radar_collect() {
 
@@ -56,13 +54,13 @@ aircraft_radar_collect() {
     fi
 
     if [[ "${saved_lat}" != "${current_lat}" ||
-      "${saved_lon}" != "${current_lon}" ]]; then
+        "${saved_lon}" != "${current_lon}" ]]; then
         if sw_cache_exists "${AIRCRAFT_BASE_MAP}"; then
             cp "${basemap_file}" "${generated_map_file}"
-        else    
+        else
             sw_cache_remove "aircraft_map_base.png"
             python3 "${HELPERS_DIR}/aircraft_radar.py" || return 1
-        fi    
+        fi
     fi
 
     if jq -e '.states and (.states | length > 0)' \
@@ -82,7 +80,7 @@ aircraft_radar_collect() {
 
         # No aircraft: show the cached base map for this location.
         cp "${basemap_file}" \
-           "${HTML_DIR}/images/mapa_aviones.png" || return 1
+            "${HTML_DIR}/images/mapa_aviones.png" || return 1
 
         AIRCRAFT_RADAR_STATUS="${SW_STATUS_OK}"
 
@@ -96,7 +94,7 @@ aircraft_radar_collect() {
 
         cp "${generated_map_file}" "${basemap_file}" || return 1
         cp "${basemap_file}" \
-           "${HTML_DIR}/images/mapa_aviones.png" || return 1
+            "${HTML_DIR}/images/mapa_aviones.png" || return 1
 
         AIRCRAFT_RADAR_STATUS="${SW_STATUS_OK}"
     fi
@@ -139,7 +137,6 @@ aircraft_radar_report() {
 
 }
 
-
 sw_module_run() {
     sw_state_use "aircraft_radar"
     sw_state_load
@@ -147,14 +144,14 @@ sw_module_run() {
     aircraft_radar_collect
     local result=$?
 
-    if (( result == 1 )); then
+    if ((result == 1)); then
         sw_log_info \
             "${MODULE_NAME}" \
             "Datos no generados"
-        AIRCRAFT_RADAR_STATUS="${SW_STATUS_WARNING}"   
+        AIRCRAFT_RADAR_STATUS="${SW_STATUS_WARNING}"
     fi
 
-    if (( result != 0 )); then
+    if ((result != 0)); then
         return "${result}"
     fi
 

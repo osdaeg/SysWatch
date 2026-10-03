@@ -20,7 +20,6 @@ MODULE_INTERVAL=${MODULE_INTERVAL:-300}
 MODULE_ORDER=${MODULE_ORDER:-100}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
-
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
@@ -32,7 +31,6 @@ ABOUT_GPU=""
 ABOUT_MEMORY=""
 ABOUT_ARCH=""
 
-
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
@@ -41,45 +39,45 @@ about_get_icon() {
 
     case "${ID:-}" in
 
-        debian)
-            echo "distros/debian"
-            ;;
+    debian)
+        echo "distros/debian"
+        ;;
 
-        ubuntu)
-            echo "distros/ubuntu"
-            ;;
+    ubuntu)
+        echo "distros/ubuntu"
+        ;;
 
-        arch)
-            echo "distros/arch"
-            ;;
+    arch)
+        echo "distros/arch"
+        ;;
 
-        rocky)
-            echo "distros/rocky"
-            ;;
+    rocky)
+        echo "distros/rocky"
+        ;;
 
-        rhel)
-            echo "distros/redhat"
-            ;;
+    rhel)
+        echo "distros/redhat"
+        ;;
 
-        fedora)
-            echo "distros/fedora"
-            ;;
+    fedora)
+        echo "distros/fedora"
+        ;;
 
-        linuxmint)
-            echo "distros/mint"
-            ;;
+    linuxmint)
+        echo "distros/mint"
+        ;;
 
-        opensuse*|sles)
-            echo "distros/suse"
-            ;;
+    opensuse* | sles)
+        echo "distros/suse"
+        ;;
 
-        mx)
-            echo "distros/mx"
-            ;;
+    mx)
+        echo "distros/mx"
+        ;;
 
-        *)
-            echo "lucide/monitor-pc"
-            ;;
+    *)
+        echo "lucide/monitor-pc"
+        ;;
 
     esac
 
@@ -102,16 +100,13 @@ about_collect() {
 
     fi
 
-
     # Kernel
 
     ABOUT_KERNEL="$(uname -r 2>/dev/null || echo "Unknown")"
 
-
     # Architecture
 
     ABOUT_ARCH="$(uname -m 2>/dev/null || echo "Unknown")"
-
 
     # CPU
 
@@ -127,7 +122,6 @@ about_collect() {
 
     [[ -z "$ABOUT_CPU" ]] && ABOUT_CPU="Unknown"
 
-
     # GPU
 
     ABOUT_GPU=""
@@ -136,7 +130,7 @@ about_collect() {
 
         ABOUT_GPU="$(
             lspci 2>/dev/null |
-            awk -F': ' '
+                awk -F': ' '
                 /VGA compatible controller|3D controller|Display controller/ {
                     print $2
                     exit
@@ -147,7 +141,6 @@ about_collect() {
     fi
 
     [[ -z "$ABOUT_GPU" ]] && ABOUT_GPU="Unknown"
-
 
     # Memory
 
@@ -178,7 +171,6 @@ about_collect() {
     fi
 
 }
-
 
 about_update_state() {
 
@@ -228,7 +220,6 @@ about_update_state() {
 
 }
 
-
 about_report() {
 
     sw_log_info \
@@ -236,7 +227,6 @@ about_report() {
         "System: ${ABOUT_DISTRIBUTION}; Kernel: ${ABOUT_KERNEL}; CPU: ${ABOUT_CPU}; GPU: ${ABOUT_GPU}; Memory: ${ABOUT_MEMORY}; Architecture: ${ABOUT_ARCH}"
 
 }
-
 
 sw_module_run() {
 
@@ -250,33 +240,33 @@ sw_module_run() {
 
     about_collect
 
-if sw_cache_exists "about.txt"; then
+    if sw_cache_exists "about.txt"; then
 
-    local file="$(sw_cache_file "about.txt")"
+        local file="$(sw_cache_file "about.txt")"
 
-    local timestamp_saved="$(cat "$file")"
-    local date_saved="$(date -d "@$timestamp_saved" +%Y-%m-%d)"
-    local date_today="$(date +%Y-%m-%d)"
+        local timestamp_saved="$(cat "$file")"
+        local date_saved="$(date -d "@$timestamp_saved" +%Y-%m-%d)"
+        local date_today="$(date +%Y-%m-%d)"
 
-    if [[ "$date_saved" != "$date_today" ]]; then
-        sw_status_update "${SW_STATUS_INFO}" || return 1
-        MODULE_INTERVAL=300
+        if [[ "$date_saved" != "$date_today" ]]; then
+            sw_status_update "${SW_STATUS_INFO}" || return 1
+            MODULE_INTERVAL=300
+        else
+            sw_status_update "${SW_STATUS_OK}" || return 1
+            MODULE_INTERVAL=6000
+        fi
+
+        echo "$(date +%s)" >"$file"
+
     else
-        sw_status_update "${SW_STATUS_OK}" || return 1
-        MODULE_INTERVAL=6000
+
+        sw_status_update "${SW_STATUS_INFO}" || return 1
+
+        echo "$(date +%s)" >"$(sw_cache_file "about.txt")"
+
+        MODULE_INTERVAL=300
+
     fi
-
-    echo "$(date +%s)" > "$file"
-
-else
-
-    sw_status_update "${SW_STATUS_INFO}" || return 1
-
-    echo "$(date +%s)" > "$(sw_cache_file "about.txt")"
-
-    MODULE_INTERVAL=300
-
-fi
 
     about_update_state
 

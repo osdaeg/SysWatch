@@ -94,7 +94,7 @@ power_collect() {
 
         fi
 
-    done <<< "$output"
+    done <<<"$output"
 
 }
 
@@ -136,16 +136,14 @@ power_analyze() {
         if awk \
             -v value="$power_w" \
             -v crit="$POWER_CRITICAL" \
-            'BEGIN { exit !(value >= crit) }'
-        then
+            'BEGIN { exit !(value >= crit) }'; then
 
             POWER_STATUS="${SW_STATUS_CRITICAL}"
 
         elif awk \
             -v value="$power_w" \
             -v warning="$warning_w" \
-            'BEGIN { exit !(value >= warning) }'
-        then
+            'BEGIN { exit !(value >= warning) }'; then
 
             POWER_STATUS="${SW_STATUS_WARNING}"
 
