@@ -27,8 +27,8 @@
 readonly MODULE_NAME="SmnAlerts"
 readonly MODULE_DESCRIPTION="SMN official weather alerts (unofficial API)"
 readonly MODULE_VERSION="0.1.0"
-MODULE_INTERVAL=${MODULE_INTERVAL:-1740}
-MODULE_ORDER=${MODULE_ORDER:-13000}
+MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_ORDER=${MODULE_ORDER:-1200}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
 # -----------------------------------------------------------------------------
@@ -46,9 +46,41 @@ SMN_ALERTS_JSON=""
 SMN_ALERT_HEADLINES=()
 SMN_ALERTS_STATUS="${SW_STATUS_OK}"
 
+declare -A SMN_TRANSLATE=(
+
+    ["Moderate"]="Moderado"
+    ["Minor"]="Leve"
+    ["Severe"]="Severo"
+    ["Extreme"]="Extremo"
+
+    ["Sun"]="Dom"
+    ["Mon"]="Lun"
+    ["Tue"]="Mar"
+    ["Wed"]="Mié"
+    ["Thu"]="Jue"
+    ["Fri"]="Vie"
+    ["Sat"]="Sáb"
+
+)
+
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
+
+sw_translate() {
+
+    local text="$1"
+    local english
+
+    for english in "${!SMN_TRANSLATE[@]}"; do
+
+        text="${text//${english}/${SMN_TRANSLATE[$english]}}"
+
+    done
+
+    printf '%s\n' "${text}"
+
+}
 
 smn_alerts_collect() {
 
@@ -68,9 +100,9 @@ smn_alerts_collect() {
     mtime="$(stat -c %Y "${SMN_ALERTS_FILE}" 2>/dev/null)"
 
     local age_minutes
-    age_minutes=$(( ( $(date +%s) - mtime ) / 60 ))
+    age_minutes=$((($(date +%s) - mtime) / 60))
 
-    if (( age_minutes > SMN_ALERTS_MAX_AGE_MINUTES )); then
+    if ((age_minutes > SMN_ALERTS_MAX_AGE_MINUTES)); then
 
         sw_log_warning \
             "${MODULE_NAME}" \
@@ -82,7 +114,7 @@ smn_alerts_collect() {
 
     SMN_ALERTS_JSON="$(cat "${SMN_ALERTS_FILE}" 2>/dev/null)"
 
-    if [[ -z "${SMN_ALERTS_JSON}" ]] || ! jq empty >/dev/null 2>&1 <<< "${SMN_ALERTS_JSON}"; then
+    if [[ -z "${SMN_ALERTS_JSON}" ]] || ! jq empty >/dev/null 2>&1 <<<"${SMN_ALERTS_JSON}"; then
 
         sw_log_warning \
             "${MODULE_NAME}" \
@@ -120,9 +152,9 @@ smn_alerts_dedupe() {
 
         [[ -z "${line}" ]] && continue
 
-        headline="$(jq -r '.headline // "N/A"' <<< "${line}")"
-        sent_raw="$(jq -r '.sent // ""' <<< "${line}")"
-        expires_raw="$(jq -r '.expires // ""' <<< "${line}")"
+        headline="$(jq -r '.headline // "N/A"' <<<"${line}")"
+        sent_raw="$(jq -r '.sent // ""' <<<"${line}")"
+        expires_raw="$(jq -r '.expires // ""' <<<"${line}")"
 
         if ! expires_epoch="$(date -d "${expires_raw}" +%s 2>/dev/null)"; then
 
@@ -134,7 +166,7 @@ smn_alerts_dedupe() {
 
         fi
 
-        if (( expires_epoch <= now_epoch )); then
+        if ((expires_epoch <= now_epoch)); then
 
             continue
 
@@ -150,15 +182,14 @@ smn_alerts_dedupe() {
         fi
 
         if [[ -z "${SMN_BEST_SENT_EPOCH[${headline}]:-}" ]] ||
-           (( sent_epoch > SMN_BEST_SENT_EPOCH[${headline}] ))
-        then
+            ((sent_epoch > SMN_BEST_SENT_EPOCH[${headline}])); then
 
             SMN_BEST_SENT_EPOCH["${headline}"]="${sent_epoch}"
             SMN_BEST_JSON["${headline}"]="${line}"
 
         fi
 
-    done < <(jq -c '.alerts[]?' <<< "${SMN_ALERTS_JSON}")
+    done < <(jq -c '.alerts[]?' <<<"${SMN_ALERTS_JSON}")
 
 }
 
@@ -171,7 +202,7 @@ smn_alerts_analyze() {
 
     for headline in "${SMN_ALERT_HEADLINES[@]}"; do
 
-        status="$(jq -r '.status // "WARNING"' <<< "${SMN_BEST_JSON[${headline}]}")"
+        status="$(jq -r '.status // "WARNING"' <<<"${SMN_BEST_JSON[${headline}]}")"
 
         if [[ "${status}" == "CRITICAL" ]]; then
 
@@ -198,10 +229,12 @@ smn_alerts_update_state() {
     local order=10
     local i=1
 
-    if (( ${#SMN_ALERT_HEADLINES[@]} == 0 )); then
+    if ((${#SMN_ALERT_HEADLINES[@]} == 0)); then
 
         sw_state_set "detail" "Sin alertas activas"
         sw_state_set "detail.label" "Estado"
+
+        MODULE_INTERVAL=21600
 
     else
 
@@ -217,22 +250,38 @@ smn_alerts_update_state() {
 
             alert="${SMN_BEST_JSON[${headline}]}"
 
-            status="$(jq -r '.status // "WARNING"' <<< "${alert}")"
-            severity="$(jq -r '.severity // "N/A"' <<< "${alert}")"
-            expires_raw="$(jq -r '.expires // ""' <<< "${alert}")"
+            status="$(jq -r '.status // "WARNING"' <<<"${alert}")"
+            severity="$(jq -r '.severity // "N/A"' <<<"${alert}")"
+            expires_raw="$(jq -r '.expires // ""' <<<"${alert}")"
             expires_local="$(date -d "${expires_raw}" '+%Y-%m-%d %H:%M' 2>/dev/null)"
             [[ -z "${expires_local}" ]] && expires_local="${expires_raw}"
 
-            summary="${headline} (${severity}) -- hasta ${expires_local}"
+            summary="${headline} (${severity}) <br> hasta ${expires_local}"
+
+            summary="$(sw_translate "${summary}")"
 
             sw_state_set "alert${i}" "${summary}"
             sw_state_set "alert${i}.label" "${status}"
             sw_state_set "alert${i}.order" "${order}"
 
-            (( order += 10 ))
-            i=$(( i + 1 ))
+            case "$status" in
+            CRITICAL)
+                sw_state_set "alert${i}.color" "red"
+                ;;
+            WARNING)
+                sw_state_set "alert${i}.color" "yellow"
+                ;;
+            *)
+                sw_state_set "alert${i}.color" "white"
+                ;;
+            esac
+
+            ((order += 10))
+            i=$((i + 1))
 
         done
+
+        MODULE_INTERVAL=1740
 
     fi
 
@@ -251,7 +300,7 @@ smn_alerts_update_state() {
         unset "SW_STATE[alert${i}.label]"
         unset "SW_STATE[alert${i}.order]"
 
-        i=$(( i + 1 ))
+        i=$((i + 1))
 
     done
 
@@ -272,7 +321,7 @@ sw_module_run() {
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
     fi
-    
+
     sw_state_load
 
     smn_alerts_collect || return 1

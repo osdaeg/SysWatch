@@ -93,7 +93,7 @@ weather_collect() {
     sw_require_command curl || return 127
     sw_require_command jq || return 127
 
-    #latlong
+    latlong
 
     if [[ -z "${WEATHER_LAT1}" || -z "${WEATHER_LON1}" || -z "${WEATHER_API_KEY}" ]]; then
 
@@ -360,13 +360,12 @@ weather_update_state() {
 
     [[ -n "${WEATHER_COUNTRY}" ]] && location="${WEATHER_CITY}, ${WEATHER_COUNTRY}"
 
-    if [[ -n "${WEATHER_SPECIAL_ICON}" ]]; then
+    if [[ -n "${location}" ]]; then
         sw_state_set "location" "${location}"
     else
         sw_state_set "location" "$(sw_translate "Undefined")"
     fi
 
-    sw_state_set "location" "${location}"
     sw_state_set "location.label" "$(sw_translate "Location")"
 
     sw_state_set "module.order" "$MODULE_ORDER"
@@ -390,7 +389,7 @@ weather_update_state() {
     sw_state_set "wind.label" "$(sw_translate "Wind")"
     sw_state_set "wind.unit" "km/h"
 
-    sw_state_set "condition" "$(sw_translate "${condicion}")"
+    sw_state_set "condition" "${condicion}"
     sw_state_set "condition.label" "$(sw_translate "Condition")"
 
     sw_state_set "rain" "${WEATHER_RAIN_MMH}"
@@ -398,12 +397,16 @@ weather_update_state() {
     sw_state_set "rain.unit" "mm/h"
     if [[ "${WEATHER_RAIN_MMH}" == "0" ]]; then
         sw_state_set "rain.hidden" "true"
+    else
+        sw_state_set "rain.hidden" "false"
     fi
 
     sw_state_set "reason" "${WEATHER_REASON}"
     sw_state_set "reason.label" "$(sw_translate "Detail")"
     if [[ "${WEATHER_STATUS}" == "${SW_STATUS_OK}" ]]; then
         sw_state_set "reason.hidden" "true"
+    else
+        sw_state_set "reason.hidden" "false"
     fi
 
 }
