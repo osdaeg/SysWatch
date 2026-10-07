@@ -25,9 +25,10 @@ MODULE_REMOTE=${MODULE_REMOTE:-""}
 # Configuration
 # -----------------------------------------------------------------------------
 
-source "${HELPERS_DIR}"/gcal.sh
-source "${HELPERS_DIR}"/caldav.sh
-source "${HELPERS_DIR}"/webcal.sh
+source "${HELPERS_DIR}"/calendar_google.sh
+source "${HELPERS_DIR}"/calendar_caldav.sh
+source "${HELPERS_DIR}"/calendar_webcal.sh
+source "${HELPERS_DIR}"/calendar_local_ics.sh
 
 CALENDAR_EVENTS=()
 CALENDAR_EVENT_COUNT=0
@@ -240,7 +241,7 @@ calendar_update_state() {
 
         fi
 
-        echo "event: $title | start: $start | event_date: $event_date | today: $today_date | tomorrow: $tomorrow_date"
+        #echo "event: $title | start: $start | event_date: $event_date | today: $today_date | tomorrow: $tomorrow_date"
 
         # ---------------------------------------------------------------------
         # Create section heading only when the day has events.
@@ -549,15 +550,18 @@ sw_module_run() {
     sw_state_load
 
     caldav_collect
-    
+
     webcal_collect
-    
+
     gcal_collect
+
+    ics_collect
 
     CALENDAR_EVENTS=(
         "${GCAL_EVENTS[@]}"
         "${CALDAV_EVENTS[@]}"
         "${WEBCAL_EVENTS[@]}"
+        "${ICS_EVENTS[@]}"
     )
 
     calendar_expand_all_day_events

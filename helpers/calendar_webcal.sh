@@ -26,6 +26,7 @@ webcal_collect_calendar() {
 
     local calendar_data="$1"
     local displayname="$2"
+    local events_array="${3:-WEBCAL_EVENTS}"
 
     local event
 
@@ -33,7 +34,7 @@ webcal_collect_calendar() {
 
         [[ -z "$event" ]] && continue
 
-        webcal_parse_event "$event" "$displayname"
+        webcal_parse_event "$event" "$displayname" "$events_array"
 
     done < <(
         printf '%s\n' "$calendar_data" |
@@ -61,6 +62,7 @@ webcal_parse_event() {
 
     local calendar_data="$1"
     local displayname="$2"
+    local events_array="${3:-WEBCAL_EVENTS}"
 
     local start=""
     local end=""
@@ -207,7 +209,7 @@ webcal_parse_event() {
     # start<TAB>end<TAB>title<TAB>calendar<TAB>all_day
     # -------------------------------------------------------------------------
 
-        local range_start
+    local range_start
     local range_end
 
     range_start="$(date '+%s')"
@@ -215,16 +217,17 @@ webcal_parse_event() {
 
     local event_start
     local event_end
+    local -n events="$events_array"
 
     event_start="$(date -d "$normalized_start" '+%s')" || return
     event_end="$(date -d "$normalized_end" '+%s')" || return
 
     # Ignore events outside the requested time range.
-    if (( event_end < range_start || event_start > range_end )); then
+    if ((event_end < range_start || event_start > range_end)); then
         return
     fi
 
-    WEBCAL_EVENTS+=(
+    events+=(
         "${normalized_start}"$'\t'"${normalized_end}"$'\t'"${title}"$'\t'"${displayname}"$'\t'"${all_day}"
     )
 

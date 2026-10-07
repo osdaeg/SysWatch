@@ -112,7 +112,7 @@ dvr_process_camera() {
     else
 
         status="${SW_STATUS_CRITICAL}"
-        detail="$(printf "$(sw_translate "The snapshot could not be obtained. (HTTP %sh)")\n" \
+        detail="$(printf "$(sw_translate "The snapshot could not be obtained. (HTTP %s)")\n" \
                 "${http_code:-sin respuesta}")"
 
         rm -f "${tmp_file}"
@@ -146,12 +146,16 @@ dvr_process_camera() {
     if [[ "${status}" == "${SW_STATUS_OK}" ]]; then
 
         sw_state_set "detail.hidden" "true"
+        sw_state_set "snapshot.hidden" "false"
 
     else
 
         sw_state_set "detail.hidden" "false"
+        sw_state_set "snapshot.hidden" "true"
 
     fi
+
+    sw_timer_create "${key}" "$(( MODULE_INTERVAL / 60 + 3))" "deletestate"
 
     sw_state_save
 

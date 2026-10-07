@@ -226,6 +226,18 @@ smn_alerts_update_state() {
     sw_state_set "module.icon" "lucide/shield-alert"
     sw_state_set "module.order" "$MODULE_ORDER"
 
+    # "detail"/"detail.label" only belong to the "no alerts" branch, and
+    # "alertN..." only to the "has alerts" branch -- clearing "detail"
+    # unconditionally here (before the if/else decides which one we're
+    # actually in) means whichever branch doesn't apply this run can
+    # never leave its fields behind for the other one to coexist with.
+    # This is exactly what was missing before: a run that WAS "no
+    # alerts" (detail set) followed by a run that HAS an alert (alert1
+    # set) left both sitting in the state file together, since nothing
+    # ever removed the stale "detail".
+    unset "SW_STATE[detail]"
+    unset "SW_STATE[detail.label]"
+
     local order=10
     local i=1
 
@@ -233,6 +245,8 @@ smn_alerts_update_state() {
 
         sw_state_set "detail" "Sin alertas activas"
         sw_state_set "detail.label" "Estado"
+
+        sw_state_delete_key "desc"
 
         MODULE_INTERVAL=21600
 
@@ -245,6 +259,8 @@ smn_alerts_update_state() {
         local expires_raw
         local expires_local
         local summary
+        local description
+        local instruction
 
         for headline in "${SMN_ALERT_HEADLINES[@]}"; do
 
@@ -253,6 +269,8 @@ smn_alerts_update_state() {
             status="$(jq -r '.status // "WARNING"' <<<"${alert}")"
             severity="$(jq -r '.severity // "N/A"' <<<"${alert}")"
             expires_raw="$(jq -r '.expires // ""' <<<"${alert}")"
+            description="$(jq -r '.description // ""' <<<"${alert}")"
+            instruction="$(jq -r '.instruction // ""' <<<"${alert}")"
             expires_local="$(date -d "${expires_raw}" '+%Y-%m-%d %H:%M' 2>/dev/null)"
             [[ -z "${expires_local}" ]] && expires_local="${expires_raw}"
 
@@ -281,6 +299,10 @@ smn_alerts_update_state() {
 
         done
 
+        sw_state_set "desc" "${description}<br><br>${instruction}"
+        sw_state_set "desc.label" "$(sw_translate "Description")"
+        sw_state_set "desc.order" "$order"
+
         MODULE_INTERVAL=1740
 
     fi
@@ -288,6 +310,10 @@ smn_alerts_update_state() {
     # A PREVIOUS run may have had more active alerts than this one --
     # remove any leftover numbered fields beyond what we just set, so an
     # alert that's no longer active doesn't linger on the card forever.
+    # Includes ".color" now too -- it was missing before, which is why
+    # "alert2.color=red" could survive even after "alert2" itself (and
+    # its .label/.order) were correctly cleaned up.
+    #
     # This can't be a blanket sw_state_clear(): that would also wipe the
     # status/status_since/timestamp that sw_status_update() just set
     # moments ago (it needs the array to still hold the PREVIOUS status,
@@ -299,6 +325,7 @@ smn_alerts_update_state() {
         unset "SW_STATE[alert${i}]"
         unset "SW_STATE[alert${i}.label]"
         unset "SW_STATE[alert${i}.order]"
+        unset "SW_STATE[alert${i}.color]"
 
         i=$((i + 1))
 

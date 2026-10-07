@@ -13,7 +13,6 @@
 # Module metadata
 # -----------------------------------------------------------------------------
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
@@ -257,9 +256,9 @@ gcal_collect_events() {
 
     local encoded_calendar_id
 
-encoded_calendar_id="$(
-    jq -rn --arg value "$calendar_id" '$value | @uri'
-)"
+    encoded_calendar_id="$(
+        jq -rn --arg value "$calendar_id" '$value | @uri'
+    )"
 
     calendar_response="$(
         curl -fsS \
@@ -295,11 +294,6 @@ encoded_calendar_id="$(
         GCAL_EVENTS+=(
             "${start}"$'\t'"${end}"$'\t'"${title}"$'\t'"${calendar}"$'\t'"${all_day}"
         )
-
-        echo "start=$start"
-echo "end=$end"
-echo "all_day=$all_day"
-echo "title=$title"
 
     done < <(
         jq -r '
@@ -449,4 +443,3 @@ gcal_analyze() {
     fi
 
 }
-

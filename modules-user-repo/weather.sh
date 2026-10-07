@@ -93,7 +93,7 @@ weather_collect() {
     sw_require_command curl || return 127
     sw_require_command jq || return 127
 
-    latlong
+    #latlong
 
     if [[ -z "${WEATHER_LAT1}" || -z "${WEATHER_LON1}" || -z "${WEATHER_API_KEY}" ]]; then
 
@@ -323,7 +323,7 @@ weather_update_state() {
 
     # Atmosphere
     7??)
-        sw_state_set "module.icon" "lucide/fog"
+        sw_state_set "module.icon" "lucide/cloud-fog"
         ;;
 
     # Clear
@@ -363,7 +363,8 @@ weather_update_state() {
     if [[ -n "${location}" ]]; then
         sw_state_set "location" "${location}"
     else
-        sw_state_set "location" "$(sw_translate "Undefined")"
+        sw_state_set "location" "$(printf "$(sw_translate "Undefined (%s:%s)")\n" \
+            "${WEATHER_LAT1}" "${WEATHER_LON1}")"
     fi
 
     sw_state_set "location.label" "$(sw_translate "Location")"

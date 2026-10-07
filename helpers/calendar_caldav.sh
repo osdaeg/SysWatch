@@ -150,7 +150,7 @@ EOF
         if [[ "$is_calendar" -gt 0 && "$has_vevent" -gt 0 ]]; then
 
             CALDAV_CALENDARS+=(
-                 "calendar"$'\t'"${href}"$'\t'"${displayname}"
+                "calendar"$'\t'"${href}"$'\t'"${displayname}"
             )
 
         elif [[ "$is_subscribed" -gt 0 && -n "$source" ]]; then
@@ -162,7 +162,7 @@ EOF
         fi
 
     done
-    
+
 }
 
 caldav_collect_calendar() {
@@ -302,7 +302,7 @@ caldav_collect() {
     CALDAV_ERROR=""
     CALDAV_EVENTS=()
     CALDAV_EVENT_COUNT=0
-    
+
     # -------------------------------------------------------------------------
     # Validate configuration
     # -------------------------------------------------------------------------
