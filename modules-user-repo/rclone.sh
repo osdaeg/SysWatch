@@ -267,6 +267,8 @@ rclone_stats() {
         )
     fi
 
+    return "$estado"
+
 }
 
 rclone_check_mount() {
@@ -368,8 +370,6 @@ rclone_update_state() {
         sw_state_use "${key}"
         sw_state_load
 
-        sw_status_update "${RCLONE_STATUS[$i]}" "${key}" || continue
-
         sw_state_set "module_version" "${MODULE_VERSION}"
 
         mountpoint=$(basename "${RCLONE_MOUNTPOINTS[$i]}")
@@ -378,13 +378,27 @@ rclone_update_state() {
         sw_state_set "module.icon" "lucide/cloud"
         sw_state_set "module.order" "$MODULE_ORDER"
 
+        RCLONE_STATS=()
+
+        RCLONE_STATS=()
+
+        if ! rclone_stats "${mountpoint}"; then
+            RCLONE_STATUS[$i]="${SW_STATUS_CRITICAL}"
+            RCLONE_DETAIL[$i]="$(sw_translate "remote unavailable")"
+
+            sw_state_delete_key "% used"
+            sw_state_delete_key "Total"
+            sw_state_delete_key "Used"
+            sw_state_delete_key "Free"
+            sw_state_delete_key "Trashed"
+            sw_state_delete_key "Others"
+        fi
+
         sw_state_set "detail" "${RCLONE_DETAIL[$i]}"
         sw_state_set "detail.label" "$(sw_translate "Status")"
         sw_state_set "detail.order" "10"
 
-        RCLONE_STATS=()
-
-        rclone_stats "${mountpoint}"
+        sw_status_update "${RCLONE_STATUS[$i]}" "${key}" || continue
 
         order=20
 

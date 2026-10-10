@@ -162,6 +162,9 @@ cpu_update_state() {
     sw_state_set "load5.order" "30"
     sw_state_set "load15.label" "$(sw_translate "Load: 15 minutes")"
     sw_state_set "load15.order" "40"
+
+    sw_message_send "weather" "prueba" "true" "cpu"
+
 }
 
 cpu_report() {

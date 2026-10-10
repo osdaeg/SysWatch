@@ -20,6 +20,25 @@
 # Cache helpers
 # -----------------------------------------------------------------------------
 
+sw_cache_copy() {
+
+    local name
+    local file="$1"
+    local dest
+
+    [[ -f "${file}" ]] || {
+        echo -1
+        return 1
+    }
+
+    name=$(basename "$file")
+
+    dest="$(sw_cache_file "${name}")"
+
+    cp "$file" "$dest"
+
+}
+
 sw_cache_post() {
 
     local name="$1"

@@ -647,7 +647,7 @@ sw_html_render_fields() {
                 continue
                 ;;
 
-            module.*|*.label|*.display|*.widget|*.unit|*.warning|*.critical|*.order|*.hidden|*.scale|*.min|*.max|*.history|*.render|*.align|*.color)
+            module.*|*.label|*.display|*.widget|*.unit|*.warning|*.critical|*.order|*.hidden|*.scale|*.min|*.max|*.history|*.render|*.align|*.color|*.from|*.persist)
 
                 continue
                 ;;

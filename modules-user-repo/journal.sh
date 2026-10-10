@@ -34,10 +34,39 @@ JOURNAL_COUNT=0
 JOURNAL_STATUS="${SW_STATUS_UNKNOWN}"
 JOURNAL_DETAILS=""
 JOURNAL_CURSOR=""
+JOURNAL_NOISE_FILE="${CONFIG_DIR}/journal_noise.conf"
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
+
+journal_load_noise() {
+    local line
+
+    JOURNAL_NOISE=()
+
+    [[ -f "${JOURNAL_NOISE_FILE}" ]] || return 0
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" ]] && continue
+        [[ "$line" == \#* ]] && continue
+
+        JOURNAL_NOISE+=("$line")
+    done <"${JOURNAL_NOISE_FILE}"
+}
+
+journal_is_noise() {
+    local message="$1"
+    local noise
+
+    for noise in "${JOURNAL_NOISE[@]}"; do
+        if [[ "$message" == *"$noise"* ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
 
 journal_get_last_cursor() {
 
@@ -251,6 +280,16 @@ for line in sys.stdin:
 '
     ) || return 1
 
+    declare -a JOURNAL_NOISE=()
+
+    if [[ -f "${JOURNAL_NOISE_FILE}" ]]; then
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ -z "$line" ]] && continue
+            [[ "$line" == \#* ]] && continue
+            JOURNAL_NOISE+=("$line")
+        done <"${JOURNAL_NOISE_FILE}"
+    fi
+
     # -------------------------------------------------------------------------
     # Process relevant events.
     #
@@ -277,6 +316,12 @@ for line in sys.stdin:
         last_cursor="$cursor"
 
         local key="${source}|${message}"
+
+        for noise in "${JOURNAL_NOISE[@]}"; do
+            if [[ "$message" == *"$noise"* ]]; then
+                continue 2
+            fi
+        done
 
         if [[ -v "problem_count[$key]" ]]; then
             ((problem_count["$key"]++))
@@ -323,6 +368,8 @@ for line in sys.stdin:
         else
             details+="${message}<br><br>"
         fi
+
+        echo "${message}" >> ~/scripts/syswatch/journal-.txt
 
     done
 

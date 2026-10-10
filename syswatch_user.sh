@@ -30,6 +30,7 @@ source "${LIB_DIR}/csv.sh"
 source "${LIB_DIR}/cache.sh"
 source "${LIB_DIR}/timer.sh"
 source "${LIB_DIR}/translate.sh"
+source "${LIB_DIR}/messages.sh"
 
 echo "TEST translate: $(type -t sw_translate)"
 
@@ -98,6 +99,11 @@ main() {
                 sw_status_update "CRITICAL"
                 sw_state_save
                 ;;
+            statusinfo)
+                sw_state_load
+                sw_status_update "INFO"
+                sw_state_save
+                ;;    
         
         esac
 

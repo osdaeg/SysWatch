@@ -832,6 +832,8 @@ aircraft_update_state() {
     # Nearest aircraft
     # -------------------------------------------------------------------------
 
+    echo "$(date) pasa un avion" >> ~/scripts/syswatch/avioncitos.txt
+
     sw_state_set "nearest.title" "=========="
     sw_state_set "nearest.title.label" "$(sw_translate "Nearest")"
     sw_state_set "nearest.title.order" "20"

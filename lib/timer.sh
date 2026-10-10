@@ -260,7 +260,7 @@ sw_timer_create() {
     fi
 
     case "$action" in
-        statusok|statuswarning|statuscritical|deletestate)
+        statusok|statuswarning|statuscritical|deletestate|statusinfo)
             # Acción válida, continuar con el script
             ;;
         *)

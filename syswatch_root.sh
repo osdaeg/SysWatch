@@ -29,6 +29,7 @@ source "${LIB_DIR}/csv.sh"
 source "${LIB_DIR}/cache.sh"
 source "${LIB_DIR}/timer.sh"
 source "${LIB_DIR}/translate.sh"
+source "${LIB_DIR}/messages.sh"
 
 # -----------------------------------------------------------------------------
 # Initialize
