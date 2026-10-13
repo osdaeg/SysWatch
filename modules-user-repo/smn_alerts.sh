@@ -45,6 +45,7 @@ readonly SMN_ALERTS_MAX_AGE_MINUTES="${SMN_ALERTS_MAX_AGE_MINUTES:-90}"
 SMN_ALERTS_JSON=""
 SMN_ALERT_HEADLINES=()
 SMN_ALERTS_STATUS="${SW_STATUS_OK}"
+WEATHER_RADAR=0
 
 declare -A SMN_TRANSLATE=(
 
@@ -222,7 +223,9 @@ smn_alerts_update_state() {
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
-    sw_state_set "module.label" "Alertas SMN"
+    sw_country_flags_load
+
+    sw_state_set "module.label" "Alertas SMN $(sw_country_flag "AR")"
     sw_state_set "module.icon" "lucide/shield-alert"
     sw_state_set "module.order" "$MODULE_ORDER"
 
@@ -261,7 +264,7 @@ smn_alerts_update_state() {
         local summary
         local description
         local instruction
-
+        
         for headline in "${SMN_ALERT_HEADLINES[@]}"; do
 
             alert="${SMN_BEST_JSON[${headline}]}"
@@ -304,6 +307,8 @@ smn_alerts_update_state() {
         sw_state_set "desc.order" "$order"
 
         MODULE_INTERVAL=1740
+
+        WEATHER_RADAR=1
 
     fi
 
@@ -364,5 +369,12 @@ sw_module_run() {
     sw_state_save
 
     smn_alerts_report
+
+    sw_message_send "radar" "$WEATHER_RADAR" "true" "weather"
+
+    sw_csv_append \
+        "weather" \
+        "radar" \
+        "${WEATHER_RADAR}"
 
 }

@@ -246,6 +246,8 @@ rss_update_state() {
 
     done
 
+    
+
 }
 
 # -----------------------------------------------------------------------------
@@ -366,6 +368,10 @@ sw_module_run() {
         rss_update_history
 
         sw_state_save
+
+        if ((RSS_NEW_ARTICLES > 0)); then
+            sw_timer_create "${RSS_FEED_TITLE}" "2" "statusok"
+        fi
 
     done
 

@@ -13,7 +13,7 @@
 # Module metadata
 # -----------------------------------------------------------------------------
 
-readonly MODULE_NAME="HOSTS Check"
+readonly MODULE_NAME="HOST Check"
 readonly MODULE_DESCRIPTION="Check network connectivity to configured hosts"
 readonly MODULE_VERSION="0.1.0"
 
@@ -39,6 +39,7 @@ declare -a URLCHECK_COLORS
 
 URLCHECK_COUNT=0
 URLCHECK_STATUS="${SW_STATUS_UNKNOWN}"
+URLCHECK_TOGGLE=1
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -103,7 +104,7 @@ urlcheck_collect() {
 
         ((URLCHECK_COUNT++))
 
-    done < "${CONFIG_DIR}/hostcheck.conf"
+    done <"${CONFIG_DIR}/hostcheck.conf"
 
 }
 
@@ -111,19 +112,21 @@ urlcheck_analyze() {
 
     URLCHECK_STATUS="${SW_STATUS_INFO}"
 
+    sw_timer_create "urlcheck" "3" "statusok"
+
     for ((i = 0; i < URLCHECK_COUNT; i++)); do
 
         received="${URLCHECK_RECEIVED[$i]}"
 
-        if (( received >= URLCHECK_PACKETS )); then
+        if ((received >= URLCHECK_PACKETS)); then
 
             URLCHECK_COLORS+=("green")
 
-        elif (( received * 4 >= URLCHECK_PACKETS * 3 )); then
+        elif ((received * 4 >= URLCHECK_PACKETS * 3)); then
 
             URLCHECK_COLORS+=("yellow")
 
-        elif (( received * 2 >= URLCHECK_PACKETS )); then
+        elif ((received * 2 >= URLCHECK_PACKETS)); then
 
             URLCHECK_COLORS+=("orange")
 
@@ -138,6 +141,8 @@ urlcheck_analyze() {
 }
 
 urlcheck_update_state() {
+
+    local toggle
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
@@ -187,6 +192,9 @@ urlcheck_report() {
 
 sw_module_run() {
 
+    local hosts=60
+    local interval=0
+
     sw_state_use "urlcheck"
 
     if [[ -n "$MODULE_REMOTE" ]]; then
@@ -199,9 +207,9 @@ sw_module_run() {
 
     urlcheck_analyze
 
-    sw_status_update "${URLCHECK_STATUS}" || return 1
-
     urlcheck_update_state
+
+    sw_status_update "${URLCHECK_STATUS}" || return 1
 
     sw_state_save
 

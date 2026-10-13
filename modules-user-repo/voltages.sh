@@ -157,6 +157,7 @@ voltages_update_state() {
     # -------------------------------------------------------------------------
 
     sw_state_set "available" "${VOLTAGES_AVAILABLE}"
+    sw_state_set "available.hidden" "true"
 
     # -------------------------------------------------------------------------
     # +3.3V

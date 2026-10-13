@@ -369,7 +369,7 @@ for line in sys.stdin:
             details+="${message}<br><br>"
         fi
 
-        echo "${message}" >> ~/scripts/syswatch/journal-.txt
+        echo "${message}" >>~/scripts/syswatch/journal-.txt
 
     done
 

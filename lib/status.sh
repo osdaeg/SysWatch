@@ -53,33 +53,21 @@ _sw_status_validate() {
 
 }
 
-# -----------------------------------------------------------------------------
-# Public functions
-# -----------------------------------------------------------------------------
-
-sw_status_update() {
+_sw_status_update() {
 
     local status="$1"
-    local detail="${2:-}"
+    local event_module="$2"
 
     _sw_status_validate "${status}" || return 1
 
     local previous_status
     local status_since
     local now
-    local event_module
 
     now="$(sw_timestamp)"
 
-    event_module="${MODULE_NAME}"
-    [[ -n "${detail}" ]] && event_module="${MODULE_NAME}:${detail}"
-
     previous_status="$(sw_state_get status)"
     status_since="$(sw_state_get status_since)"
-
-    # -------------------------------------------------------------------------
-    # First execution
-    # -------------------------------------------------------------------------
 
     if [[ -z "${previous_status}" ]]; then
 
@@ -93,10 +81,6 @@ sw_status_update() {
             "Initial status: ${status}"
 
         status_since="${now}"
-
-    # -------------------------------------------------------------------------
-    # Status changed
-    # -------------------------------------------------------------------------
 
     elif [[ "${previous_status}" != "${status}" ]]; then
 
@@ -113,18 +97,41 @@ sw_status_update() {
 
     fi
 
-    # -------------------------------------------------------------------------
-    # Keep previous timestamp if status didn't change
-    # -------------------------------------------------------------------------
-
     [[ -n "${status_since}" ]] || status_since="${now}"
-
-    # -------------------------------------------------------------------------
-    # Update state
-    # -------------------------------------------------------------------------
 
     sw_state_set status "${status}"
     sw_state_set status_since "${status_since}"
     sw_state_set timestamp "${now}"
+
+}
+
+# -----------------------------------------------------------------------------
+# Public functions
+# -----------------------------------------------------------------------------
+
+sw_status_update() {
+
+    local status="$1"
+    local detail="${2:-}"
+    local event_module="${MODULE_NAME}"
+
+    [[ -n "${detail}" ]] &&
+        event_module="${MODULE_NAME}:${detail}"
+
+    _sw_status_update "${status}" "${event_module}"
+
+}
+
+sw_status_update_for() {
+
+    local module="$1"
+    local status="$2"
+
+    sw_state_use "${module}"
+    sw_state_load
+
+    _sw_status_update "${status}" "${module}"
+
+    sw_state_save
 
 }

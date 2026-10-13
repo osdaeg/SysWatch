@@ -73,6 +73,7 @@ WEATHER_STATUS="${SW_STATUS_OK}"
 WEATHER_REASON=""
 WEATHER_ID=0
 WEATHER_SPECIAL_ICON=""
+WEATHER_RADAR=0
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -197,6 +198,7 @@ weather_analyze() {
         WEATHER_STATUS="${SW_STATUS_CRITICAL}"
         WEATHER_REASON="$(sw_translate "Tornado")"
         WEATHER_SPECIAL_ICON="lucide/tornado"
+        WEATHER_RADAR=1
 
     elif ((temp_int >= WEATHER_TEMP_CRITICAL_HIGH)); then
 
@@ -225,6 +227,7 @@ weather_analyze() {
         WEATHER_REASON="$(printf "$(sw_translate "Heavy rain (%s mm/h)")\n" \
             "${WEATHER_RAIN_MMH}")"
         WEATHER_SPECIAL_ICON="lucide/cloud-rain-wind"
+        WEATHER_RADAR=1
 
     elif ((temp_int >= WEATHER_TEMP_WARNING_HIGH)); then
 
@@ -253,12 +256,14 @@ weather_analyze() {
         WEATHER_REASON="$(printf "$(sw_translate "Rain (%s mm/h)")\n" \
             "${WEATHER_RAIN_MMH}")"
         WEATHER_SPECIAL_ICON="lucide/cloud-rain-wind"
+        WEATHER_RADAR=1
 
     elif [[ "${WEATHER_MAIN}" == "Thunderstorm" ]]; then
 
         WEATHER_STATUS="${SW_STATUS_WARNING}"
         WEATHER_REASON="$(sw_translate "Thunderstorm")"
         WEATHER_SPECIAL_ICON="lucide/cloud-lightning"
+        WEATHER_RADAR=1
 
     fi
 
@@ -300,6 +305,7 @@ weather_update_state() {
     # Thunderstorm
     2??)
         sw_state_set "module.icon" "lucide/cloud-lightning"
+        WEATHER_RADAR=1
         ;;
 
     # Drizzle
@@ -310,15 +316,18 @@ weather_update_state() {
     # Rain
     511)
         sw_state_set "module.icon" "lucide/snowflake"
+        WEATHER_RADAR=1
         ;;
 
     5??)
         sw_state_set "module.icon" "lucide/cloud-rain"
+        WEATHER_RADAR=1
         ;;
 
     # Snow
     6??)
         sw_state_set "module.icon" "lucide/cloud-snow"
+        WEATHER_RADAR=1
         ;;
 
     # Atmosphere
@@ -361,7 +370,10 @@ weather_update_state() {
     [[ -n "${WEATHER_COUNTRY}" ]] && location="${WEATHER_CITY}, ${WEATHER_COUNTRY}"
 
     if [[ -n "${location}" ]]; then
-        sw_state_set "location" "${location}"
+        sw_country_flags_load
+        pais="${location##* }"
+
+        sw_state_set "location" "$(sw_country_flag "$pais") ${location}"
     else
         sw_state_set "location" "$(printf "$(sw_translate "Undefined (%s:%s)")\n" \
             "${WEATHER_LAT1}" "${WEATHER_LON1}")"
@@ -440,5 +452,12 @@ sw_module_run() {
     sw_state_save
 
     weather_report
+
+    sw_message_send "radar" "$WEATHER_RADAR" "true" "weather"
+
+    sw_csv_append \
+        "weather" \
+        "radar" \
+        "${WEATHER_RADAR}"
 
 }

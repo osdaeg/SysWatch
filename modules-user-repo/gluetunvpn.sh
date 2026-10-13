@@ -138,6 +138,8 @@ gluetun_analyze() {
 
 gluetun_update_state() {
 
+    local flag
+
     sw_state_set "module_version" "${MODULE_VERSION}"
 
     sw_state_set "module.label" "Gluetun VPN"
@@ -164,9 +166,11 @@ gluetun_update_state() {
     sw_state_set "public_ip.label" "$(sw_translate "Public IP")"
     sw_state_set "public_ip.order" "40"
 
+    sw_country_flags_load
+
     local location="${GLUETUN_CITY}"
     [[ -n "${GLUETUN_REGION}" ]] && location="${location}, ${GLUETUN_REGION}"
-    [[ -n "${GLUETUN_COUNTRY}" ]] && location="${location} (${GLUETUN_COUNTRY})"
+    [[ -n "${GLUETUN_COUNTRY}" ]] && location="${location} ($(sw_country_flag "$GLUETUN_COUNTRY") ${GLUETUN_COUNTRY})"
 
     sw_state_set "location" "${location}"
     sw_state_set "location.label" "$(sw_translate "Location")"
@@ -208,19 +212,8 @@ sw_module_run() {
 
     gluetun_report
 
-    sw_csv_append \
-        "gluetun" \
-        "interface" \
-        "${GLUETUN_INTERFACE}"
-
-    sw_csv_append \
-        "gluetun" \
-        "public_ip" \
-        "${GLUETUN_PUBLIC_IP}"    
-
-    sw_csv_append \
-        "gluetun" \
-        "port" \
-        "${GLUETUN_PORT_FORWARD}"    
+    sw_message_send "qbittorrent_info1" "$GLUETUN_INTERFACE" "true" "interface"
+    sw_message_send "qbittorrent_info1" "$GLUETUN_PUBLIC_IP" "true" "ip"
+    sw_message_send "qbittorrent_info1" "$GLUETUN_PORT_FORWARD" "true" "port"
 
 }

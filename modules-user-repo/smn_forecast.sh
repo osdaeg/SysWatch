@@ -131,7 +131,9 @@ smn_forecast_update_state() {
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
-    sw_state_set "module.label" "Pronóstico SMN"
+    sw_country_flags_load
+
+    sw_state_set "module.label" "Pronóstico SMN $(sw_country_flag "AR")"
     sw_state_set "module.icon" "lucide/calendar-days"
     sw_state_set "module.order" "$MODULE_ORDER"
 
@@ -216,11 +218,13 @@ sw_module_run() {
 
     smn_forecast_collect || return 1
 
-    sw_status_update "${SW_STATUS_OK}" || return 1
+    sw_status_update "${SW_STATUS_INFO}" || return 1
 
     smn_forecast_update_state
 
     sw_state_save
+
+    sw_timer_create "smn_forecast" "5" "statusok"
 
     smn_forecast_report
 

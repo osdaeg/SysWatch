@@ -46,6 +46,8 @@ SPEEDTEST_UPLOAD_MBPS=""
 SPEEDTEST_PING_MS=""
 SPEEDTEST_PACKET_LOSS=""
 SPEEDTEST_EXTERNAL_IP=""
+SPEEDTEST_MAX_SPEED="${SPEEDTEST_MAX_SPEED:-300}"
+SPEEDTEST_STATUS=""
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -61,9 +63,9 @@ speedtest_should_run() {
 
     local now elapsed_minutes
     now="$(date +%s)"
-    elapsed_minutes=$(( (now - last_run) / 60 ))
+    elapsed_minutes=$(((now - last_run) / 60))
 
-    (( elapsed_minutes >= SPEEDTEST_INTERVAL_MINUTES ))
+    ((elapsed_minutes >= SPEEDTEST_INTERVAL_MINUTES))
 
 }
 
@@ -91,14 +93,36 @@ speedtest_collect() {
 
     # bandwidth comes in bytes/sec from the Ookla CLI -- convert to Mbps.
     SPEEDTEST_DOWNLOAD_MBPS="$(
-        jq -r '((.download.bandwidth // 0) * 8 / 1000000) | (. * 10 | round) / 10' <<< "${response}"
+        jq -r '((.download.bandwidth // 0) * 8 / 1000000) | (. * 10 | round) / 10' <<<"${response}"
     )"
     SPEEDTEST_UPLOAD_MBPS="$(
-        jq -r '((.upload.bandwidth // 0) * 8 / 1000000) | (. * 10 | round) / 10' <<< "${response}"
+        jq -r '((.upload.bandwidth // 0) * 8 / 1000000) | (. * 10 | round) / 10' <<<"${response}"
     )"
-    SPEEDTEST_PING_MS="$(jq -r '.ping.latency // 0' <<< "${response}")"
-    SPEEDTEST_PACKET_LOSS="$(jq -r '.packetLoss // 0' <<< "${response}")"
-    SPEEDTEST_EXTERNAL_IP="$(jq -r '.interface.externalIp // "unknown"' <<< "${response}")"
+    SPEEDTEST_PING_MS="$(jq -r '.ping.latency // 0' <<<"${response}")"
+    SPEEDTEST_PACKET_LOSS="$(jq -r '.packetLoss // 0' <<<"${response}")"
+    SPEEDTEST_EXTERNAL_IP="$(jq -r '.interface.externalIp // "unknown"' <<<"${response}")"
+
+}
+
+speedtest_analyze() {
+
+    local SPEED_33 SPEED_66
+
+    SPEED_66=$((SPEEDTEST_MAX_SPEED * 66 / 100))
+    SPEED_33=$((SPEEDTEST_MAX_SPEED * 33 / 100))
+
+    if [ "$1" -ge "$SPEED_66" ] && [ "$1" -le "$SPEEDTEST_MAX_SPEED" ]; then
+        SPEEDTEST_STATUS="${SW_STATUS_OK}"
+
+    elif [ "$1" -ge "$SPEED_33" ] && [ "$1" -lt "$SPEED_66" ]; then
+        SPEEDTEST_STATUS="${SW_STATUS_WARNING}"
+
+    elif [ "$1" -ge 0 ] && [ "$1" -lt "$SPEED_33" ]; then
+        SPEEDTEST_STATUS="${SW_STATUS_CRITICAL}"
+
+    else
+        CPU_STATUS="${SW_STATUS_UNKNOWN}"
+    fi
 
 }
 
@@ -117,7 +141,7 @@ speedtest_update_state() {
     sw_state_set "download.widget" "line"
     sw_state_set "download.scale" "fixed"
     sw_state_set "download.min" "0"
-    sw_state_set "download.max" "350"
+    sw_state_set "download.max" "${SPEEDTEST_MAX_SPEED}"
 
     sw_state_set "upload" "${SPEEDTEST_UPLOAD_MBPS}"
     sw_state_set "upload.label" "$(sw_translate "Upload")"
@@ -162,7 +186,7 @@ sw_module_run() {
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
     fi
-    
+
     sw_state_load
 
     if ! speedtest_should_run; then
@@ -177,17 +201,9 @@ sw_module_run() {
 
     speedtest_collect || return 1
 
-    sw_status_update "${SW_STATUS_OK}" || return 1
-
-    speedtest_update_state
-
-    sw_state_save
-
-    local dl_csv
-
     dl_csv="$(awk \
-            -v value="$SPEEDTEST_DOWNLOAD_MBPS" \
-            'BEGIN { printf "%.0f", value }')"
+        -v value="$SPEEDTEST_DOWNLOAD_MBPS" \
+        'BEGIN { printf "%.0f", value }')"
 
     sw_csv_append \
         "speedtest" \
@@ -195,15 +211,25 @@ sw_module_run() {
         "$dl_csv"
 
     local ul_csv
-    
+
     ul_csv="$(awk \
-            -v value="$SPEEDTEST_UPLOAD_MBPS" \
-            'BEGIN { printf "%.0f", value }')"
+        -v value="$SPEEDTEST_UPLOAD_MBPS" \
+        'BEGIN { printf "%.0f", value }')"
 
     sw_csv_append \
         "speedtest" \
         "upload" \
-        "$ul_csv"    
+        "$ul_csv"
+
+    speedtest_analyze "${dl_csv}"
+
+    sw_status_update "${SPEEDTEST_STATUS}" || return 1
+
+    speedtest_update_state
+
+    sw_state_save
+
+    local dl_csv
 
     speedtest_report
 

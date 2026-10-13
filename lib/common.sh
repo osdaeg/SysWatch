@@ -36,6 +36,70 @@ readonly CONFIG_DIR="${PROJECT_DIR}/config"
 # Functions
 # -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# Country flags
+# -----------------------------------------------------------------------------
+
+declare -gA SW_COUNTRY_FLAGS=()
+
+sw_country_flags_load() {
+
+    local -a fields
+    local country
+    local official
+    local iso
+    local flag
+    local key
+
+    SW_COUNTRY_FLAGS=()
+
+    sw_cache_exists "countries.map" || return 0
+
+    while IFS='|' read -r -a fields; do
+
+        country="${fields[0]:-}"
+
+        [[ -n "${country}" ]] || continue
+
+        # Support both formats:
+        #
+        # OpenSky name | ISO | flag
+        # OpenSky name | official name | ISO | flag
+
+        if ((${#fields[@]} >= 4)); then
+            official="${fields[1]:-}"
+            iso="${fields[2]:-}"
+            flag="${fields[3]:-}"
+        else
+            official=""
+            iso="${fields[1]:-}"
+            flag="${fields[2]:-}"
+        fi
+
+        [[ -n "${flag}" ]] || continue
+
+        for key in "$country" "$official" "$iso"; do
+
+            [[ -n "${key}" ]] || continue
+
+            key="${key,,}"
+            SW_COUNTRY_FLAGS["${key}"]="${flag}"
+
+        done
+
+    done < <(sw_cache_read "countries.map")
+}
+
+
+sw_country_flag() {
+
+    local country="${1,,}"
+
+    [[ -n "${country}" ]] || return 0
+
+    printf '%s' "${SW_COUNTRY_FLAGS[$country]:-}"
+}
+
 function sw_zodiac_emoji() {
 
 declare -A zodiaco

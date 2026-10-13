@@ -18,7 +18,7 @@ readonly MODULE_DESCRIPTION="Network state monitoring"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-120}
 MODULE_ORDER=${MODULE_ORDER:-30}
-MODULE_REMOTE=${MODULE_REMOTE:-"pepito"}
+MODULE_REMOTE=${MODULE_REMOTE:-""}
 
 # -----------------------------------------------------------------------------
 # Configuration

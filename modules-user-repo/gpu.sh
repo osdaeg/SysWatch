@@ -135,6 +135,7 @@ gpu_update_state() {
     # -------------------------------------------------------------------------
 
     sw_state_set "available" "${GPU_AVAILABLE}"
+    sw_state_set "available.hidden" "true"
 
     # -------------------------------------------------------------------------
     # GPU core voltage

@@ -32,8 +32,6 @@ source "${LIB_DIR}/timer.sh"
 source "${LIB_DIR}/translate.sh"
 source "${LIB_DIR}/messages.sh"
 
-echo "TEST translate: $(type -t sw_translate)"
-
 # -----------------------------------------------------------------------------
 # Initialize
 # -----------------------------------------------------------------------------
@@ -71,10 +69,19 @@ main() {
 
     sw_timer_update_all
 
+    sw_state_clear
+
+    printf '%s\n' "${SW_TIMER_DONE[@]}" >> ~/scripts/syswatch/timer.txt
+
+
     for entry in "${SW_TIMER_DONE[@]}"; do
 
         modulo="${entry%%:*}"
         action="${entry#*:}"
+
+        echo "$(date) ENTRY=[$entry] MODULO=[$modulo] ACTION=[$action]" \
+        >> ~/scripts/syswatch/timer.txt
+
 
         sw_state_use "${modulo}"
 
@@ -82,28 +89,23 @@ main() {
 
             deletestate)
                 sw_state_delete
-                echo "$(date) (main) ${modulo} ${action}" >> ~/scripts/syswatch/timer.txt
                 ;;
             statusok)
-                sw_state_load
-                sw_status_update "OK"
-                sw_state_save
+                sw_status_update_for "${modulo}" "${SW_STATUS_OK}"
                 ;;
             statuswarning)
-                sw_state_load
-                sw_status_update "WARNING"
-                sw_state_save
+                sw_status_update_for "${modulo}" "${SW_STATUS_WARNING}"
                 ;;
             statuscritical)
-                sw_state_load
-                sw_status_update "CRITICAL"
-                sw_state_save
+                sw_status_update_for "${modulo}" "${SW_STATUS_CRITICAL}"
                 ;;
             statusinfo)
-                sw_state_load
-                sw_status_update "INFO"
-                sw_state_save
-                ;;    
+                sw_status_update_for "${modulo}" "${SW_STATUS_INFO}"
+                ;;   
+                            *)
+                echo "$(date) CASE NO MATCH: [$action]" \
+                    >> ~/scripts/syswatch/timer.txt
+                ;;
         
         esac
 

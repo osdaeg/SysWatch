@@ -170,6 +170,7 @@ power_update_state() {
     # -------------------------------------------------------------------------
 
     sw_state_set "available" "${POWER_AVAILABLE}"
+    sw_state_set "available.hidden" "true"
 
     # -------------------------------------------------------------------------
     # Current power

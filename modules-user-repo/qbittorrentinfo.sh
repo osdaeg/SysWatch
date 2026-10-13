@@ -216,11 +216,12 @@ qbittorrent_update_state() {
     local interface
     local address
 
-    port="$(sw_csv_last_values "gluetun" "port" "1")"
-    interface="$(sw_csv_last_values "gluetun" "interface" "1")"
-    address="$(sw_csv_last_values "gluetun" "public_ip" "1")"
-
-    echo "-${port}-"
+    sw_message_load "ip"
+    address="$MESSAGE_FROM_MODULE"
+    sw_message_load "port"
+    port="$MESSAGE_FROM_MODULE"
+    sw_message_load "interface"
+    interface="$MESSAGE_FROM_MODULE"
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
