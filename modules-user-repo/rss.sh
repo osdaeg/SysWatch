@@ -179,8 +179,6 @@ rss_analyze() {
 
         if [[ -n "${RSS_KNOWN["$guid"]-}" ]]; then
             continue
-        else
-            echo "NUEVO:    [$guid]" >&2
         fi
 
         ((RSS_NEW_ARTICLES++))
