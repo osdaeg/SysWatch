@@ -1,0 +1,24 @@
+Los módulos SMN de SysWatch usan una API no oficial para acceder a los datos del SMN (servicio meteorológico nacional) de Argentina, ya que el servicio no provee ninguna. Además, descarga los RSS que el SMN sí provee. Con todo eso los módulos ofrecen datos de clima actual, previsión a 5 días y alertas.
+
+La instalación de la API se hace de la siguiente manera:
+
+Primero descarga la API desde https://github.com/nixietab/OpenSMN. Instala siguiendo los pasos del readme. En debian es necesario ejecutar en un entorno virtual de python.
+
+Si la instalación y configuración se hace de modo correcto, una vez ejecutado start.sh quedará escuchando en el puerto 6942.
+
+Esta API se encarga de renovar el token y de devolver los datos de clima actual y previsión.
+
+Después, copia el script smn.sh provisto desde el directorio helpers de SysWatch al directorio donde instalaste OpenSMN. Dale permisos de ejecución y ponelo en crontab, con el lapso de ejecución que vos elijas.
+Modifica el script. En la variable AUTH pone la clave que le pusiste a OpenSMN. En la variable CACHE_DIR pone la ruta al directorio cache de SysWatch y en la variable LOCATION el número de tu ciudad según figura en smn_locaciones. También tenés que poner las coordenadas geográficas de tu ciudad en las variables WEATHER_LAT y WEATHER_LON.
+
+En el archivo smn_locaciones está la lista completa de lugares para configurar el script.
+
+El script hace: 
+
+1. pide a la API los datos de clima actual
+2. pide a la api los datos de previsión meteorológica a 5 días 
+3. descarga los RSS desde SMN (alertas y avisos)
+4. analiza los RSS y descarga una serie de XML desde SMN 
+5. busca dentro de los XML si las coordenadas que definiste están incluidas
+6. con todo eso construye 3 JSON: actual.json, forecast.json y cap_alert.json que son consumidos por los módulos SMN de SysWatch 
+

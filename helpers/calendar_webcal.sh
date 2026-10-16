@@ -76,6 +76,13 @@ webcal_parse_event() {
     local start_tz=""
     local end_tz=""
 
+    local rrule=""
+    local until=""
+
+    local -a rule_parts
+
+    local byday=""
+
     calendar_data="${calendar_data//$'\r'/}"
 
     # -------------------------------------------------------------------------
@@ -159,6 +166,10 @@ webcal_parse_event() {
 
             elif [[ "$line" == SUMMARY:* ]]; then
                 title="${line#*:}"
+
+            elif [[ "$line" == RRULE:* ]]; then
+                rrule="${line#RRULE:}"
+
             fi
             ;;
         esac
@@ -221,6 +232,140 @@ webcal_parse_event() {
 
     event_start="$(date -d "$normalized_start" '+%s')" || return
     event_end="$(date -d "$normalized_end" '+%s')" || return
+
+    # -------------------------------------------------------------------------
+    # Expand simple yearly all-day recurrence.
+    # -------------------------------------------------------------------------
+
+    # Expand annual all-day recurrences when the original date is outside the display range.
+    if ((event_end < range_start || event_start > range_end)) &&
+        [[ "$all_day" == "true" ]]; then
+
+        local interval="1"
+        local rule_part
+        local candidate_year
+        local candidate_start=""
+        local candidate_end=""
+        local candidate_start_epoch
+        local candidate_end_epoch
+        local duration_days
+        local month="${normalized_start:5:2}"
+        local original_day="${normalized_start:8:2}"
+        local ordinal=""
+        local weekday=""
+        local month_first
+        local month_last
+        local first_weekday
+        local last_weekday
+        local days_in_month
+        local weekday_num
+        local offset
+        local occurrence_day
+        local until_date=""
+        local -a rule_parts
+        local frequency=""
+
+        IFS=';' read -ra rule_parts <<<"$rrule"
+
+        for rule_part in "${rule_parts[@]}"; do
+            case "$rule_part" in
+            FREQ=*) frequency="${rule_part#FREQ=}" ;;
+            INTERVAL=*) interval="${rule_part#INTERVAL=}" ;;
+            BYDAY=*) byday="${rule_part#BYDAY=}" ;;
+            UNTIL=*) until="${rule_part#UNTIL=}" ;;
+            esac
+        done
+
+        if [[ -n "$rrule" ]]; then
+        printf '[RRULE] Evento: %s | Regla: %s\n' \
+            "${title:-SIN TÍTULO}" "$rrule" >>~/scripts/syswatch/helpers/rrule.txt
+    fi
+
+        if [[ "$frequency" == "YEARLY" ]] ||
+            [[ "$frequency" == "MONTHLY" && "$interval" == "12" ]]; then
+
+            duration_days=$(((event_end - event_start) / 86400))
+
+            # Convert UNTIL to a calendar date.
+            if [[ "$until" =~ ^[0-9]{8} ]]; then
+                until_date="${until:0:4}-${until:4:2}-${until:6:2}"
+            elif [[ -n "$until" ]]; then
+                until_date="$(date -d "$until" '+%Y-%m-%d' 2>/dev/null)" || until_date=""
+            fi
+
+            for candidate_year in "$(date '+%Y')" "$(($(date '+%Y') + 1))"; do
+                candidate_start=""
+
+                if [[ -n "$byday" ]]; then
+                    # Ordinal weekday: 1SU, 2WE, 4TH, -1MO, etc.
+                    if [[ "$byday" =~ ^(-?[1-5])(SU|MO|TU|WE|TH|FR|SA)$ ]]; then
+                        ordinal="${BASH_REMATCH[1]}"
+                        weekday="${BASH_REMATCH[2]}"
+                    else
+                        # Unsupported BYDAY syntax: leave this occurrence alone.
+                        continue
+                    fi
+
+                    month_first="${candidate_year}-${month}-01"
+                    month_last="$(date -d "$month_first + 1 month - 1 day" '+%Y-%m-%d')" || continue
+                    days_in_month="${month_last:8:2}"
+                    first_weekday="$(date -d "$month_first" '+%w')" || continue
+
+                    case "$weekday" in
+                    SU) weekday_num=0 ;;
+                    MO) weekday_num=1 ;;
+                    TU) weekday_num=2 ;;
+                    WE) weekday_num=3 ;;
+                    TH) weekday_num=4 ;;
+                    FR) weekday_num=5 ;;
+                    SA) weekday_num=6 ;;
+                    esac
+
+                    if ((ordinal > 0)); then
+                        offset=$(((weekday_num - first_weekday + 7) % 7))
+                        occurrence_day=$((1 + offset + (ordinal - 1) * 7))
+                    else
+                        last_weekday="$(date -d "$month_last" '+%w')" || continue
+                        offset=$(((last_weekday - weekday_num + 7) % 7))
+                        occurrence_day=$((10#$days_in_month - offset))
+                    fi
+
+                    ((occurrence_day >= 1 && occurrence_day <= 10#$days_in_month)) || continue
+
+                    candidate_start="$(printf '%04d-%02d-%02d' \
+                        "$candidate_year" "$((10#$month))" "$occurrence_day")"
+
+                else
+                    # Annual recurrence on the original month/day.
+                    candidate_start="$(date -d \
+                        "${candidate_year}-${month}-${original_day}" \
+                        '+%Y-%m-%d' 2>/dev/null)" || continue
+
+                    # Reject dates normalized by GNU date, e.g. February 29
+                    # becoming March 1 in a non-leap year.
+                    [[ "${candidate_start:5:5}" == "${normalized_start:5:5}" ]] || continue
+                fi
+
+                if [[ -n "$until_date" && "$candidate_start" > "$until_date" ]]; then
+                    continue
+                fi
+
+                candidate_end="$(date -d \
+                    "$candidate_start + ${duration_days} days" '+%Y-%m-%d')" || continue
+
+                candidate_start_epoch="$(date -d "$candidate_start" '+%s')" || continue
+                candidate_end_epoch="$(date -d "$candidate_end" '+%s')" || continue
+
+                if ((candidate_end_epoch >= range_start && candidate_start_epoch <= range_end)); then
+                    normalized_start="$candidate_start"
+                    normalized_end="$candidate_end"
+                    event_start="$candidate_start_epoch"
+                    event_end="$candidate_end_epoch"
+                    break
+                fi
+            done
+        fi
+    fi
 
     # Ignore events outside the requested time range.
     if ((event_end < range_start || event_start > range_end)); then
@@ -310,6 +455,8 @@ webcal_collect() {
     local displayname
     local source
 
+    rm -f ~/scripts/syswatch/helpers/rrule.txt
+
     for webcal in "${CALDAV_WEBCAL_SOURCES[@]}"; do
 
         IFS=$'\t' read -r displayname source <<<"$webcal"
@@ -320,6 +467,7 @@ webcal_collect() {
                 "$source"
         )" || {
             WEBCAL_ERROR="Unable to download Webcal"
+            echo "$WEBCAL_ERROR"
             return 1
         }
 

@@ -41,20 +41,24 @@ gcal_get_access_token() {
     local response
     local access_token
 
-    response="$(
-        curl -fsS \
-            --max-time 15 \
-            -X POST \
-            "https://oauth2.googleapis.com/token" \
-            -d "client_id=${GCAL_CLIENT_ID}" \
-            -d "client_secret=${GCAL_CLIENT_SECRET}" \
-            -d "refresh_token=${GCAL_TOKEN}" \
-            -d "grant_type=refresh_token"
-    )" || {
+    
 
-        GCAL_ERROR="Unable to contact Google OAuth service"
-        return 1
-    }
+    response="$(
+    curl -sS \
+        --max-time 15 \
+        -X POST \
+        "https://oauth2.googleapis.com/token" \
+        -d "client_id=${GCAL_CLIENT_ID}" \
+        -d "client_secret=${GCAL_CLIENT_SECRET}" \
+        -d "refresh_token=${GCAL_TOKEN}" \
+        -d "grant_type=refresh_token"
+)" || {
+    GCAL_ERROR="Unable to contact Google OAuth service"
+    echo "1 $GCAL_ERROR"
+    return 1
+}
+
+echo "response 1 $response"
 
     access_token="$(jq -r '.access_token // empty' <<<"$response")"
 
@@ -64,7 +68,7 @@ gcal_get_access_token() {
             jq -r '.error_description // .error // "Unable to obtain access token"' \
                 <<<"$response"
         )"
-
+        echo "2 $GCAL_ERROR"
         return 1
     fi
 
@@ -338,6 +342,7 @@ gcal_collect() {
         -z "$GCAL_TOKEN" ]]; then
 
         GCAL_ERROR="Google Calendar credentials are not configured"
+        echo "3 $GCAL_ERROR"
         return 1
 
     fi
@@ -357,6 +362,7 @@ gcal_collect() {
     gcal_sync_calendars "$access_token" || {
 
         GCAL_ERROR="Unable to synchronize Google Calendar configuration"
+        echo "4 $GCAL_ERROR"
         return 1
     }
 
@@ -373,6 +379,7 @@ gcal_collect() {
         gcal_collect_events "$access_token" "$calendar_id" || {
 
             GCAL_ERROR="Unable to query Google Calendar"
+            echo "5 $GCAL_ERROR"
             return 1
         }
 

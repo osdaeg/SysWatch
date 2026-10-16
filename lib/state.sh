@@ -45,15 +45,32 @@ sw_state_delete_prefix() {
 
 sw_state_delete_key() {
 
-    if [[ -z "${1:-}" ]]; then
-        return 1
-    fi
+    local base="${1:-}"
+    local key
+    local suffix
 
-    local key_to_delete="$1"
+    [[ -n "$base" ]] || return 1
 
-    if [[ -v SW_STATE["$key_to_delete"] ]]; then
-        unset "SW_STATE[$key_to_delete]"
-    fi
+    local -a modifiers=(
+        label display widget unit warning critical order
+        hidden scale min max history render align color
+        from persist
+    )
+
+    for key in "${!SW_STATE[@]}"; do
+
+        [[ "$key" == "$base" ]] && {
+            unset 'SW_STATE[$key]'
+            continue
+        }
+
+        for suffix in "${modifiers[@]}"; do
+            if [[ "$key" == "$base.$suffix" ]]; then
+                unset 'SW_STATE[$key]'
+                break
+            fi
+        done
+    done
 }
 
 sw_state_use() {

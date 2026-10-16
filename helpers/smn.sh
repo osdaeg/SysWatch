@@ -12,6 +12,8 @@ FORECAST="$CACHE_DIR/forecast.json"
 CAP_TMP_DIR="${TMPDIR:-/tmp}/syswatch-cap"
 CAP_RELEVANT_DIR="$CAP_TMP_DIR/relevant"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+WEATHER_LAT=-35.81081
+WEATHER_LON=-61.89897
 
 json=$(curl -s \
     -H "Authorization: ${AUTH}" \
@@ -86,9 +88,6 @@ while IFS= read -r -d '' xml; do
 done
 
 echo "¡Proceso finalizado! Los archivos están en la carpeta '$CACHE_DIR'."
-
-WEATHER_LAT=-35.81081
-WEATHER_LON=-61.89897
 
 #WEATHER_LAT=-30.11
 #WEATHER_LON=-58.27

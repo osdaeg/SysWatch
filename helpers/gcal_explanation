@@ -53,3 +53,9 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+​8. Run the Python Script / Ejecutar el script de Python
+​[EN]: If the application is in test mode, the refresh token only lasts for a few days and must then be regenerated. To resolve this, the application must be set to production mode, which requires a domain certified by Google. My solution for this? I installed Radicale (https://github.com/Kozea/Radicale) and created a webcal-type collection, adding the Google calendar to it using its public URL. Radicale serves this calendar in read-only mode, but for SysWatch, that works fine.
+​[ES]: Si la aplicación esta en modo prueba el refresh token solo dura unos dias y luego debe ser regenerado. Para solucionar esto debe ponerse la aplicación en modo producción, para lo cual hace falta un dominio certificado por Google. ¿Mi solución para esto? Instalé Radicale (https://github.com/Kozea/Radicale) y creé una colección tipo webcal, agregando ahí el calendario de Google usando su dirección pública. Radicale sirve este calendario en modo solo lectura, pero para SysWatch sirve.
+
+
