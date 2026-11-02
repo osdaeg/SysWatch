@@ -16,10 +16,13 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Power"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Hardware power consumption"
 readonly MODULE_VERSION="0.1.0"
 
 MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-1150}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -199,16 +202,41 @@ power_update_state() {
     if [[ -n "$POWER_CURRENT" ]]; then
 
         local power_csv
+        local power_min
+        local power_max
 
         power_csv="$(awk \
             -v value="$POWER_CURRENT" \
             'BEGIN { printf "%.0f", value }')"
 
-        sw_state_set "power" "${power_csv}"
+        power_min="$(sw_state_get "power_min")"
+        power_max="$(sw_state_get "power_max")"
+
+        power_min=${power_min:-$power_csv}
+        power_max=${power_max:-$power_csv}
+
+        if ((power_csv <= power_min)); then
+            power_min="$power_csv"
+
+            sw_state_set "power_min" "$power_min"
+            sw_state_set "power_min.hidden" "true"
+        fi
+
+        if ((power_csv >= power_max)); then
+            power_max="$power_csv"
+
+            sw_state_set "power_max" "$power_max"
+            sw_state_set "power_max.hidden" "true"
+        fi
+
+        sw_state_set "power" "$power_csv"
         sw_state_set "power.label" "$(sw_translate "Power history")"
         sw_state_set "power.widget" "line"
         sw_state_set "power.unit" "mW"
         sw_state_set "power.order" "20"
+        sw_state_set "power.min" "$power_min"
+        sw_state_set "power.max" "$power_max"
+        sw_state_set "power.scale" "fixed"
 
     fi
 

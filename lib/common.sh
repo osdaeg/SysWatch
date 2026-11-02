@@ -31,7 +31,6 @@ readonly CONFIG_DIR="${PROJECT_DIR}/config"
 : "${HELPERS_DIR:=${PROJECT_DIR}/helpers}"
 : "${TRANSLATIONS_DIR:=${PROJECT_DIR}/translations}"
 
-
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
@@ -90,7 +89,6 @@ sw_country_flags_load() {
     done < <(sw_cache_read "countries.map")
 }
 
-
 sw_country_flag() {
 
     local country="${1,,}"
@@ -100,27 +98,27 @@ sw_country_flag() {
     printf '%s' "${SW_COUNTRY_FLAGS[$country]:-}"
 }
 
-function sw_zodiac_emoji() {
+sw_zodiac_emoji() {
 
-declare -A zodiaco
+    declare -A zodiaco
 
-local signo=$1
+    local signo=$1
 
-zodiaco=(
-    ["Aries"]="♈"
-    ["Taurus"]="♉"
-    ["Gemini"]="♊"
-    ["Cancer"]="♋"
-    ["Leo"]="♌"
-    ["Virgo"]="♍"
-    ["Libra"]="♎"
-    ["Scorpio"]="♏"
-    ["Ophiuchus"]="⛎"
-    ["Sagittarius"]="♐"
-    ["Capricornus"]="♑"
-    ["Aquarius"]="♒"
-    ["Pisces"]="♓"
-    ["Auriga"]=""
+    zodiaco=(
+        ["Aries"]="♈"
+        ["Taurus"]="♉"
+        ["Gemini"]="♊"
+        ["Cancer"]="♋"
+        ["Leo"]="♌"
+        ["Virgo"]="♍"
+        ["Libra"]="♎"
+        ["Scorpio"]="♏"
+        ["Ophiuchus"]="⛎"
+        ["Sagittarius"]="♐"
+        ["Capricornus"]="♑"
+        ["Aquarius"]="♒"
+        ["Pisces"]="♓"
+        ["Auriga"]=""
     )
 
     if [[ -n "${zodiaco[$signo]}" ]]; then
@@ -129,7 +127,39 @@ zodiaco=(
     else
         return 1 # Error
     fi
-    
+
+}
+
+sw_wait_unlocked() {
+    local lock_file="${PROJECT_DIR}/lock"
+
+    while [[ -e "$lock_file" ]]; do
+        sleep 30
+    done
+}
+
+sw_remote_export() {
+    local source="$1"
+    local destination="$2"
+    local tmp
+
+    [[ -f "$source" ]] || return 1
+
+    # Temporal único en el mismo directorio NFS.
+    tmp="${destination}.tmp.$$.$RANDOM"
+
+    if ! cat -- "$source" >"$tmp"; then
+        rm -f -- "$tmp"
+        sw_log "ERROR" "No se pudo escribir el temporal remoto: $tmp"
+        return 1
+    fi
+
+    if ! mv -f -- "$tmp" "$destination"; then
+        sw_log "ERROR" "No se pudo publicar el archivo remoto: $destination"
+        return 1
+    fi
+
+    return 0
 }
 
 sw_check_remote() {
@@ -146,24 +176,21 @@ sw_check_remote() {
 
 sw_create_remote_dirs() {
 
-   
     shopt -s extglob
 
-
-    if [[ -z "${REMOTES//+([ ,])}" ]]; then
+    if [[ -z "${REMOTES//+([ ,])/}" ]]; then
         echo "La variable REMOTES está vacía o no es válida. Saltando creación."
     else
-   
-        IFS=',' read -ra CARPETAS <<< "$REMOTES"
+
+        IFS=',' read -ra CARPETAS <<<"$REMOTES"
 
         for carpeta in "${CARPETAS[@]}"; do
-        
+
             if [[ -n "$carpeta" ]]; then
                 mkdir -p "$REMOTE_DIR/$carpeta"
             fi
         done
     fi
-
 
     shopt -u extglob
 }
@@ -179,8 +206,15 @@ sw_import() {
     [[ -d "$IMPORT_DIR" ]] || mkdir -p "$IMPORT_DIR"
     [[ -f "$IMPORT_DIR/.import" ]] || touch "$IMPORT_DIR/.import"
 
-    for csv in "${IMPORT_DIR}"/*.csv; do
-        [[ -f "${csv}" ]] || continue
+    local csv filename remote_module metric
+    local state timer local_module line existing_module
+    local message
+
+    # Importar CSV normales y ocultos.
+    # Se excluyen archivos temporales.
+    for csv in "$IMPORT_DIR"/*.csv "$IMPORT_DIR"/.[!.]*.csv "$IMPORT_DIR"/..?*.csv; do
+        [[ -f "$csv" ]] || continue
+        [[ "$csv" == *.tmp.* ]] && continue
 
         filename="${csv##*/}"
 
@@ -188,27 +222,63 @@ sw_import() {
         metric="${filename#*.}"
         metric="${metric%.csv}"
 
+        # Para nombres ocultos como .snapshots.cpu.csv:
+        # módulo=.snapshots, métrica=cpu
+        if [[ "$filename" == .* ]]; then
+            remote_module="${filename#.}"
+            remote_module="${remote_module%%.*}"
+            metric="${filename#*.}"
+            metric="${metric#*.}"
+            metric="${metric%.csv}"
+        fi
+
         mkdir -p "${CSV_DIR}/${remote_module}"
 
-        mv "${csv}" \
-            "${CSV_DIR}/${remote_module}/${metric}.csv"
+        mv -- "$csv" "${CSV_DIR}/${remote_module}/${metric}.csv"
     done
 
-    # Mover archivos .state si existen
-    if compgen -G "$IMPORT_DIR"/*.state > /dev/null; then
-        sw_log_info "IMPORT" "$(ls ${IMPORT_DIR}/*.state)"
-        mv "$IMPORT_DIR"/*.state "$STATE_DIR/"
-    fi
+    # Importar estados normales y ocultos.
+    for state in "$IMPORT_DIR"/*.state "$IMPORT_DIR"/.[!.]*.state "$IMPORT_DIR"/..?*.state; do
+        [[ -f "$state" ]] || continue
+        [[ "$state" == *.tmp.* ]] && continue
 
-    # Anexar y borrar archivos .timer si existen
-    if compgen -G "$IMPORT_DIR"/*.timer > /dev/null; then
-        [[ -d "$TIMER_DIR" ]] || mkdir -p "$TIMER_DIR"
-        sw_log_info "IMPORT" "$(ls ${IMPORT_DIR}/*.timer)"
-        cat "$IMPORT_DIR"/*.timer >> "$TIMER_DIR/timers.txt" && rm "$IMPORT_DIR"/*.timer
-    fi
-    
+        sw_log_info "IMPORT" "$state"
+        mv -- "$state" "$STATE_DIR/"
+    done
+
+    # Importar timers, reemplazando los existentes.
+    [[ -d "$TIMER_DIR" ]] || mkdir -p "$TIMER_DIR"
+
+    for timer in "$IMPORT_DIR"/*.timer "$IMPORT_DIR"/.[!.]*.timer "$IMPORT_DIR"/..?*.timer; do
+        [[ -f "$timer" ]] || continue
+        [[ "$timer" == *.tmp.* ]] && continue
+
+        local_module="${timer##*/}"
+        local_module="${local_module%.timer}"
+
+        if [[ -f "$TIMER_DIR/timers.txt" ]]; then
+            while IFS= read -r line; do
+                existing_module="${line%%=*}"
+                [[ "$existing_module" == "$local_module" ]] && continue
+                printf '%s\n' "$line"
+            done <"$TIMER_DIR/timers.txt" >"$TIMER_DIR/timers.tmp"
+
+            mv "$TIMER_DIR/timers.tmp" "$TIMER_DIR/timers.txt"
+        fi
+
+        if cat "$timer" >>"$TIMER_DIR/timers.txt"; then
+            rm -f -- "$timer"
+        fi
+    done
+
+    # Importar mensajes normales y ocultos.
+    for message in "$IMPORT_DIR"/*.message "$IMPORT_DIR"/.[!.]*.message "$IMPORT_DIR"/..?*.message; do
+        [[ -f "$message" ]] || continue
+        [[ "$message" == *.tmp.* ]] && continue
+
+        mv -- "$message" "$CACHE_DIR/"
+    done
 }
-
 
 sw_download() {
 
@@ -238,9 +308,9 @@ sw_human_bytes() {
 }
 
 sw_timestamp() {
-  
+
     date '+%Y-%m-%d %H:%M:%S'
-    
+
 }
 
 sw_lock_acquire() {
@@ -262,25 +332,25 @@ sw_lock_acquire() {
 }
 
 sw_timestamp_file() {
-  
+
     date '+%Y%m%d_%H%M%S'
-    
+
 }
 
 sw_die() {
-  
+
     printf 'ERROR: %s\n' "$*" >&2
-    
+
     exit 1
-    
+
 }
 
 sw_require_command() {
 
     local cmd="$1"
 
-    command -v "$cmd" >/dev/null 2>&1 \
-        || sw_die "Required command not found: ${cmd}"
+    command -v "$cmd" >/dev/null 2>&1 ||
+        sw_die "Required command not found: ${cmd}"
 
 }
 
@@ -293,9 +363,9 @@ sw_mkdir() {
 }
 
 sw_script_dir() {
-  
+
     cd -- "$(dirname -- "${BASH_SOURCE[1]}")" && pwd -P
-    
+
 }
 
 sw_is_root() {

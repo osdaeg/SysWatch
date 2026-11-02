@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 # SysWatch
 #
-# module RUGBY
+# module FUTBOL
 #
 # Requires IESPIEN (https://github.com/osdaeg/iespien)
 #
@@ -16,11 +16,14 @@
 # Module metadata
 # -----------------------------------------------------------------------------
 
-readonly MODULE_NAME="IESPIEN-RUGBY"
-readonly MODULE_DESCRIPTION="RUGBY events"
+readonly MODULE_NAME="IESPIEN-INTERNATIONAL-FUTBOL"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
+readonly MODULE_DESCRIPTION="FUTBOL events"
 readonly MODULE_VERSION="0.1.0"
 
 MODULE_INTERVAL=${MODULE_INTERVAL:-21400}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-9999}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -28,22 +31,22 @@ MODULE_REMOTE=${MODULE_REMOTE:-""}
 # Configuration
 # -----------------------------------------------------------------------------
 
-readonly RUGBY_WARNING="${RUGBY_WARNING:-80}"
-readonly RUGBY_CRITICAL="${RUGBY_CRITICAL:-95}"
+readonly FUTBOL_WARNING="${FUTBOL_WARNING:-80}"
+readonly FUTBOL_CRITICAL="${FUTBOL_CRITICAL:-95}"
 
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
 
-RUGBY_VALUE=0
-RUGBY_STATUS="${SW_STATUS_UNKNOWN}"
-RUGBY_EVENTS=()
+FUTBOL_VALUE=0
+FUTBOL_STATUS="${SW_STATUS_UNKNOWN}"
+FUTBOL_EVENTS=()
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
 
-RUGBY_collect() {
+FUTBOL_collect() {
 
     local anio mes dia
     local file cached item
@@ -53,13 +56,13 @@ RUGBY_collect() {
     mes=$(date +%m)
     dia=$(date +%d)
 
-    file="/home/daniel/docker/util/iespien/cache/rugby_${anio}-${mes}-${dia}.json"
+    file="/home/daniel/docker/util/iespien/cache/fútbol_de_selecciones_${anio}-${mes}-${dia}.json"
 
     [[ -f "$file" ]] || return 1
 
     sw_cache_copy "$file"
 
-    cached=$(sw_cache_file "rugby_${anio}-${mes}-${dia}.json")
+    cached=$(sw_cache_file "fútbol_de_selecciones_${anio}-${mes}-${dia}.json")
 
     [[ -f "$cached" ]] || return 1
 
@@ -72,7 +75,7 @@ RUGBY_collect() {
         escenario=$(jq -r '.escenario' <<<"$item")
         canales=$(jq -r '.canales | join(", ")' <<<"$item")
 
-        RUGBY_EVENTS+=(
+        FUTBOL_EVENTS+=(
             "${competicion}|${contrincantes}|${fecha}|${hora}|${escenario}|${canales}"
         )
 
@@ -87,27 +90,27 @@ RUGBY_collect() {
     ' "$cached"
     )
 
-    #printf '%s\n' "${RUGBY_EVENTS[@]}"
+    #printf '%s\n' "${FUTBOL_EVENTS[@]}"
 
 }
 
-RUGBY_analyze() {
+FUTBOL_analyze() {
 
-    RUGBY_STATUS="${SW_STATUS_OK}"
+    FUTBOL_STATUS="${SW_STATUS_OK}"
 
-    if ((RUGBY_VALUE >= RUGBY_CRITICAL)); then
+    if ((FUTBOL_VALUE >= FUTBOL_CRITICAL)); then
 
-        RUGBY_STATUS="${SW_STATUS_CRITICAL}"
+        FUTBOL_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif ((RUGBY_VALUE >= RUGBY_WARNING)); then
+    elif ((FUTBOL_VALUE >= FUTBOL_WARNING)); then
 
-        RUGBY_STATUS="${SW_STATUS_WARNING}"
+        FUTBOL_STATUS="${SW_STATUS_WARNING}"
 
     fi
 
 }
 
-RUGBY_update_state() {
+FUTBOL_update_state() {
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
@@ -115,8 +118,8 @@ RUGBY_update_state() {
     # Module metadata (consumed by lib/html.sh)
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "$(sw_translate "Rugby")"
-    sw_state_set "module.icon" "sports/rugby"
+    sw_state_set "module.label" "$(sw_translate "International football")"
+    sw_state_set "module.icon" "sports/futbol"
     sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
@@ -132,7 +135,7 @@ RUGBY_update_state() {
     local previous="previo"
     local event
 
-    for data in "${RUGBY_EVENTS[@]}"; do
+    for data in "${FUTBOL_EVENTS[@]}"; do
 
         IFS='|' read -r competicion contrincantes fecha hora escenario canales <<<"$data"
 
@@ -170,17 +173,17 @@ RUGBY_update_state() {
 
 }
 
-RUGBY_report() {
+FUTBOL_report() {
 
     sw_log_info \
         "${MODULE_NAME}" \
-        "RUGBY value: ${RUGBY_VALUE} (${RUGBY_STATUS})"
+        "FUTBOL value: ${FUTBOL_VALUE} (${FUTBOL_STATUS})"
 
 }
 
 sw_module_run() {
 
-    sw_state_use "rugby"
+    sw_state_use "futbol2"
 
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
@@ -190,23 +193,23 @@ sw_module_run() {
 
     sw_state_clear
 
-    RUGBY_collect
+    FUTBOL_collect
 
-    RUGBY_analyze
+    FUTBOL_analyze
 
-    sw_status_update "${RUGBY_STATUS}" || return 1
+    sw_status_update "${FUTBOL_STATUS}" || return 1
 
-    RUGBY_update_state
+    FUTBOL_update_state
 
     sw_state_save
 
-    RUGBY_report
+    FUTBOL_report
 
     # Optional: append to CSV history for sparkline widgets.
     #
     # sw_csv_append \
-    #     "RUGBY" \
+    #     "FUTBOL" \
     #     "value" \
-    #     "${RUGBY_VALUE}"
+    #     "${FUTBOL_VALUE}"
 
 }

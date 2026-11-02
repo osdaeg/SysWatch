@@ -11,7 +11,6 @@ set -o nounset
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly LAUNCHER_NAME="ROOT Launcher"
 
-
 # -----------------------------------------------------------------------------
 # Load libraries
 # -----------------------------------------------------------------------------
@@ -40,6 +39,8 @@ sw_check_config
 
 main() {
 
+    sw_wait_unlocked
+
     sw_mkdir \
         "$STATE_DIR" \
         "$LOG_DIR" \
@@ -51,8 +52,8 @@ main() {
         "$TRANSLATIONS_DIR"
 
     sw_translations_load
-        
-    sw_lock_acquire "syswatch_root"    
+
+    sw_lock_acquire "syswatch_root"
 
     sw_log_execution
 

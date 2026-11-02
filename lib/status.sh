@@ -30,24 +30,24 @@ _sw_status_validate() {
 
     case "${status}" in
 
-        "${SW_STATUS_UNKNOWN}" \
-        | "${SW_STATUS_OK}" \
-        | "${SW_STATUS_INFO}" \
-        | "${SW_STATUS_WARNING}" \
-        | "${SW_STATUS_CRITICAL}" \
-        | "${SW_STATUS_DISABLED}")
+    "${SW_STATUS_UNKNOWN}" | \
+        "${SW_STATUS_OK}" | \
+        "${SW_STATUS_INFO}" | \
+        "${SW_STATUS_WARNING}" | \
+        "${SW_STATUS_CRITICAL}" | \
+        "${SW_STATUS_DISABLED}")
 
-            return 0
-            ;;
+        return 0
+        ;;
 
-        *)
+    *)
 
-            sw_log_error \
-                "Status" \
-                "Invalid status: ${status}"
+        sw_log_error \
+            "Status" \
+            "Invalid status: ${status}"
 
-            return 1
-            ;;
+        return 1
+        ;;
 
     esac
 

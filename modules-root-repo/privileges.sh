@@ -14,12 +14,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Privileges"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Execution privilege verification"
 readonly MODULE_VERSION="0.1.0"
-MODULE_INTERVAL=${MODULE_INTERVAL:-3600}
+MODULE_INTERVAL=${MODULE_INTERVAL_NORMAL:-3600}
 MODULE_ORDER=${MODULE_ORDER:-7000}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
-
 
 # -----------------------------------------------------------------------------
 # Module variables
@@ -47,7 +47,7 @@ analyze() {
 
     PRIVILEGES_STATUS="OK"
 
-    if (( PRIVILEGES_EUID != 0 )); then
+    if ((PRIVILEGES_EUID != 0)); then
 
         PRIVILEGES_STATUS="CRITICAL"
 
@@ -66,11 +66,10 @@ update_state() {
     sw_state_set "module.label" "ROOT"
     sw_state_set "module.icon" "lucide/user-lock"
     sw_state_set "module.order" "$MODULE_ORDER"
-    
-    
-    sw_state_set "user.label"  "$(sw_translate "User")"
+
+    sw_state_set "user.label" "$(sw_translate "User")"
     sw_state_set "user.order" "20"
-    sw_state_set "uid.label"  "ID de usuario"
+    sw_state_set "uid.label" "ID de usuario"
     sw_state_set "uid.order" "30"
     sw_state_set "euid.label" "ID Efectivo"
     sw_state_set "euid.order" "40"
@@ -91,7 +90,7 @@ sw_module_run() {
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
     fi
-    
+
     sw_state_load
 
     collect

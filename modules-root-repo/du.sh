@@ -32,12 +32,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Du"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Heavy-directory finder for mounts disk.sh flagged as full"
 readonly MODULE_VERSION="0.1.0"
-MODULE_INTERVAL=${MODULE_INTERVAL:-480}
+MODULE_INTERVAL=${MODULE_INTERVAL_NORMAL:-480}
 MODULE_ORDER=${MODULE_ORDER:-42}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
-
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -51,35 +51,104 @@ readonly DU_TIMEOUT_SECONDS="${DU_TIMEOUT_SECONDS:-30}"
 # -----------------------------------------------------------------------------
 
 du_find_heaviest() {
-
-    # Excludes the root's OWN line by exact path match (not by "skip
-    # line 1") -- when one child dominates the parent's total (e.g. a
-    # single folder eating 95%+ of the mount), du -h can round both to
-    # the same displayed size, making sort's tie-break between them
-    # unreliable. Matching the literal path is immune to that.
-
     local root="$1"
+    local tmp
+    local sorted
+    local rc
+    local record
+    local path
+    local result=""
 
-    timeout "${DU_TIMEOUT_SECONDS}" du -hx --max-depth=1 "${root}" 2>/dev/null |
-        awk -v root="${root}" '$2 != root' |
-        sort -rh |
-        head -n 1 |
-        awk '{print $2}'
+    tmp="$(mktemp)" || return 1
+    sorted="$(mktemp)" || {
+        rm -f -- "$tmp"
+        return 1
+    }
 
+    if timeout "${DU_TIMEOUT_SECONDS}" \
+        du -hx --null --max-depth=1 "$root" \
+        >"$tmp" 2>/dev/null; then
+        :
+    else
+        rc=$?
+        rm -f -- "$tmp" "$sorted"
+        return "$rc"
+    fi
+
+    if sort -z -rh "$tmp" >"$sorted"; then
+        :
+    else
+        rc=$?
+        rm -f -- "$tmp" "$sorted"
+        return "$rc"
+    fi
+
+    while IFS= read -r -d '' record; do
+        path="${record#*$'\t'}"
+
+        [[ "$path" == "$root" ]] && continue
+
+        result="$path"
+        break
+    done <"$sorted"
+
+    rm -f -- "$tmp" "$sorted"
+
+    [[ -n "$result" ]] || return 1
+
+    printf '%s\n' "$result"
 }
 
 du_top_subdirs() {
-
-    # Prints "size\tpath" for the DU_TOP_N heaviest immediate
-    # subdirectories of $1 -- same exact-path exclusion as above.
-
     local dir="$1"
+    local tmp
+    local sorted
+    local rc
+    local record
+    local size
+    local path
+    local count=0
 
-    timeout "${DU_TIMEOUT_SECONDS}" du -hx --max-depth=1 "${dir}" 2>/dev/null |
-        awk -v dir="${dir}" '$2 != dir' |
-        sort -rh |
-        head -n "${DU_TOP_N}"
+    tmp="$(mktemp)" || return 1
+    sorted="$(mktemp)" || {
+        rm -f -- "$tmp"
+        return 1
+    }
 
+    if timeout "${DU_TIMEOUT_SECONDS}" \
+        du -hx --null --max-depth=1 "$dir" \
+        >"$tmp" 2>/dev/null; then
+        :
+    else
+        rc=$?
+        rm -f -- "$tmp" "$sorted"
+        return "$rc"
+    fi
+
+    if sort -z -rh "$tmp" >"$sorted"; then
+        :
+    else
+        rc=$?
+        rm -f -- "$tmp" "$sorted"
+        return "$rc"
+    fi
+
+    while IFS= read -r -d '' record; do
+        size="${record%%$'\t'*}"
+        path="${record#*$'\t'}"
+
+        [[ "$path" == "$dir" ]] && continue
+
+        printf '%s\t%s\n' "$size" "$path"
+
+        ((count += 1))
+
+        ((count >= DU_TOP_N)) && break
+    done <"$sorted"
+
+    rm -f -- "$tmp" "$sorted"
+
+    return 0
 }
 
 du_process_disk_state() {
@@ -102,7 +171,6 @@ du_process_disk_state() {
     sw_state_use "${key}"
 
     if ! mountpoint -q "${mountpoint}"; then
-        echo "pasa por aca"
         sw_state_delete
         return
     fi
@@ -116,7 +184,6 @@ du_process_disk_state() {
         # Nothing wrong (or disk.sh hasn't run yet this cycle) --
         # clear any previous breakdown so a card doesn't linger once
         # the mount recovers.
-        echo "atraviesa este lugar"
         sw_state_delete
         return
 
@@ -126,29 +193,34 @@ du_process_disk_state() {
 
     parent=$(sw_state_get "parent")
 
-    if [[ -z "${parent}" || ! -f "${parent}" ]]; then
-        sw_state_reset
+    if [[ -n "${parent}" && ! -f "${parent}" ]]; then
         sw_state_delete
         return
     fi
 
     local heaviest_dir
-    heaviest_dir="$(du_find_heaviest "${mountpoint}")"
+    local top_dirs
 
-    if [[ -z "${heaviest_dir}" ]]; then
-
+    # Find the heaviest directory.
+    if ! heaviest_dir="$(du_find_heaviest "${mountpoint}")"; then
         sw_log_warning \
             "${MODULE_NAME}" \
             "du timed out or failed for ${mountpoint}"
-
         return 1
-
     fi
 
+    # List its largest subdirectories.
+    if ! top_dirs="$(du_top_subdirs "${heaviest_dir}")"; then
+        sw_log_warning \
+            "${MODULE_NAME}" \
+            "du failed while listing subdirectories of ${heaviest_dir}"
+        return 1
+    fi
+
+    # Both scans succeeded. Update the state.
     sw_status_update "${disk_status}" "${key}" || return
 
     sw_state_set "module_version" "${MODULE_VERSION}"
-
     sw_state_set "module.label" "du: ${mountpoint}"
     sw_state_set "module.icon" "lucide/folder-search"
     sw_state_set "module.order" "$MODULE_ORDER"
@@ -159,10 +231,15 @@ du_process_disk_state() {
 
     local order=20
     local rank=1
+    local line
     local size
     local path
 
-    while read -r size path; do
+    while IFS= read -r line; do
+        [[ -z "${line}" ]] && continue
+
+        size="${line%%$'\t'*}"
+        path="${line#*$'\t'}"
 
         [[ -z "${path}" ]] && continue
 
@@ -170,10 +247,15 @@ du_process_disk_state() {
         sw_state_set "dir${rank}.label" "#${rank}"
         sw_state_set "dir${rank}.order" "${order}"
 
-        (( rank++ ))
-        (( order += 10 ))
+        ((rank++))
+        ((order += 10))
+    done <<<"${top_dirs}"
 
-    done < <(du_top_subdirs "${heaviest_dir}")
+    # Remove obsolete directory entries.
+    while ((rank <= DU_TOP_N)); do
+        sw_state_delete_key "dir${rank}"
+        ((rank++))
+    done
 
     sw_state_set "parent" "$disk_state_file"
     sw_state_set "parent.hidden" "true"
@@ -187,19 +269,33 @@ du_process_disk_state() {
 }
 
 sw_module_run() {
-
     sw_require_command du || return 127
 
     local f
+    local key
+    local parent
 
+    # Procesar los estados de disk.sh.
     for f in "${STATE_DIR}"/*.state; do
-
         [[ -f "${f}" ]] || continue
-
         grep -q "^_internal.mountpoint=" "${f}" || continue
-
         du_process_disk_state "${f}"
-
     done
 
+    # Limpiar estados Du cuyo estado padre ya desapareció.
+    for f in "${STATE_DIR}"/*_du.state; do
+        [[ -f "${f}" ]] || continue
+
+        key="$(basename "${f}" .state)"
+        sw_state_use "${key}"
+        sw_state_load
+        parent="$(sw_state_get "parent")"
+
+        if [[ -n "${parent}" && ! -f "${parent}" ]]; then
+            sw_state_delete
+            sw_log_info \
+                "${MODULE_NAME}" \
+                "Eliminado estado huérfano: ${key}"
+        fi
+    done
 }

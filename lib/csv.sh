@@ -69,20 +69,19 @@ sw_csv_all_above() {
 
     mapfile -t values < <(sw_csv_last_values "${category}" "${metric}" "${samples}")
 
-    (( ${#values[@]} >= samples )) || return 1
+    ((${#values[@]} >= samples)) || return 1
 
-    for v in "${values[@]}"
-    do
+    for v in "${values[@]}"; do
 
         [[ -n "${v}" ]] || return 1
 
-        (( v >= threshold )) || return 1
+        ((v >= threshold)) || return 1
 
-        (( count++ ))
+        ((count++))
 
     done
 
-    (( count == samples ))
+    ((count == samples))
 
 }
 
@@ -138,14 +137,14 @@ sw_csv_append() {
 
     if [[ ! -f "${file}" ]]; then
 
-        echo "timestamp,value" > "${file}"
+        echo "timestamp,value" >"${file}"
 
     fi
 
     printf "%s,%s\n" \
         "$(date +%s)" \
         "${value}" \
-        >> "${file}"
+        >>"${file}"
 
     sw_csv_trim \
         "${file}" \
@@ -162,9 +161,9 @@ sw_csv_trim() {
 
     local lines
 
-    lines=$(wc -l < "${file}")
+    lines=$(wc -l <"${file}")
 
-    (( lines <= CSV_MAX_LINES + 1 )) && return
+    ((lines <= CSV_MAX_LINES + 1)) && return
 
     {
 
@@ -172,7 +171,7 @@ sw_csv_trim() {
 
         tail -n "${CSV_MAX_LINES}" "${file}"
 
-    } > "${file}.tmp"
+    } >"${file}.tmp"
 
     mv "${file}.tmp" "${file}"
 
@@ -203,6 +202,7 @@ sw_csv_export_remote() {
     local source_dir="${CSV_DIR}/${module}"
     local csv
     local metric
+    local destination
 
     [[ -d "${source_dir}" ]] || return 0
 
@@ -212,8 +212,10 @@ sw_csv_export_remote() {
         metric="${csv##*/}"
         metric="${metric%.csv}"
 
-        cp "${csv}" \
-            "${remote_dir}/${remote_module}.${metric}.csv"
+        destination="${remote_dir}/${remote_module}.${metric}.csv"
 
+        if ! sw_remote_export "$csv" "$destination"; then
+            sw_log "ERROR" "Falló la exportación CSV: $destination"
+        fi
     done
 }

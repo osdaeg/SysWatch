@@ -24,9 +24,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Weather"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Weather monitoring (OpenWeatherMap)"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-540}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-9}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -454,6 +457,7 @@ sw_module_run() {
     weather_report
 
     sw_message_send "radar" "$WEATHER_RADAR" "true" "weather"
+    sw_message_send "smn_radar" "$WEATHER_RADAR" "true" "weather"
 
     sw_csv_append \
         "weather" \

@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 # SysWatch
 #
-# module F1
+# module BASQUET
 #
 # Requires IESPIEN (https://github.com/osdaeg/iespien)
 #
@@ -16,34 +16,37 @@
 # Module metadata
 # -----------------------------------------------------------------------------
 
-readonly MODULE_NAME="IESPIEN-F1"
-readonly MODULE_DESCRIPTION="F1 events"
+readonly MODULE_NAME="IESPIEN-BASQUET"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
+readonly MODULE_DESCRIPTION="BASQUET events"
 readonly MODULE_VERSION="0.1.0"
 
-MODULE_INTERVAL=${MODULE_INTERVAL:-300}
-MODULE_ORDER=${MODULE_ORDER:-10}
+MODULE_INTERVAL=${MODULE_INTERVAL:-21400}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
+MODULE_ORDER=${MODULE_ORDER:-9999}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
 
-readonly F1_WARNING="${F1_WARNING:-80}"
-readonly F1_CRITICAL="${F1_CRITICAL:-95}"
+readonly BASQUET_WARNING="${BASQUET_WARNING:-80}"
+readonly BASQUET_CRITICAL="${BASQUET_CRITICAL:-95}"
 
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
 
-F1_VALUE=0
-F1_STATUS="${SW_STATUS_UNKNOWN}"
-F1_EVENTS=()
+BASQUET_VALUE=0
+BASQUET_STATUS="${SW_STATUS_UNKNOWN}"
+BASQUET_EVENTS=()
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
 
-F1_collect() {
+BASQUET_collect() {
 
     local anio mes dia
     local file cached item
@@ -53,13 +56,13 @@ F1_collect() {
     mes=$(date +%m)
     dia=$(date +%d)
 
-    file="/home/daniel/docker/util/iespien/cache/fórmula_1_${anio}-${mes}-${dia}.json"
+    file="/home/daniel/docker/util/iespien/cache/básquet_${anio}-${mes}-${dia}.json"
 
     [[ -f "$file" ]] || return 1
 
     sw_cache_copy "$file"
 
-    cached=$(sw_cache_file "fórmula_1_${anio}-${mes}-${dia}.json")
+    cached=$(sw_cache_file "básquet_${anio}-${mes}-${dia}.json")
 
     [[ -f "$cached" ]] || return 1
 
@@ -72,7 +75,7 @@ F1_collect() {
         escenario=$(jq -r '.escenario' <<<"$item")
         canales=$(jq -r '.canales | join(", ")' <<<"$item")
 
-        F1_EVENTS+=(
+        BASQUET_EVENTS+=(
             "${competicion}|${contrincantes}|${fecha}|${hora}|${escenario}|${canales}"
         )
 
@@ -87,27 +90,27 @@ F1_collect() {
     ' "$cached"
     )
 
-    #printf '%s\n' "${F1_EVENTS[@]}"
+    #printf '%s\n' "${BASQUET_EVENTS[@]}"
 
 }
 
-F1_analyze() {
+BASQUET_analyze() {
 
-    F1_STATUS="${SW_STATUS_OK}"
+    BASQUET_STATUS="${SW_STATUS_OK}"
 
-    if ((F1_VALUE >= F1_CRITICAL)); then
+    if ((BASQUET_VALUE >= BASQUET_CRITICAL)); then
 
-        F1_STATUS="${SW_STATUS_CRITICAL}"
+        BASQUET_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif ((F1_VALUE >= F1_WARNING)); then
+    elif ((BASQUET_VALUE >= BASQUET_WARNING)); then
 
-        F1_STATUS="${SW_STATUS_WARNING}"
+        BASQUET_STATUS="${SW_STATUS_WARNING}"
 
     fi
 
 }
 
-F1_update_state() {
+BASQUET_update_state() {
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
@@ -115,8 +118,8 @@ F1_update_state() {
     # Module metadata (consumed by lib/html.sh)
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "$(sw_translate "F1")"
-    sw_state_set "module.icon" "sports/f1"
+    sw_state_set "module.label" "$(sw_translate "Basket")"
+    sw_state_set "module.icon" "sports/basquet"
     sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
@@ -132,7 +135,7 @@ F1_update_state() {
     local previous="previo"
     local event
 
-    for data in "${F1_EVENTS[@]}"; do
+    for data in "${BASQUET_EVENTS[@]}"; do
 
         IFS='|' read -r competicion contrincantes fecha hora escenario canales <<<"$data"
 
@@ -170,17 +173,17 @@ F1_update_state() {
 
 }
 
-F1_report() {
+BASQUET_report() {
 
     sw_log_info \
         "${MODULE_NAME}" \
-        "F1 value: ${F1_VALUE} (${F1_STATUS})"
+        "BASQUET value: ${BASQUET_VALUE} (${BASQUET_STATUS})"
 
 }
 
 sw_module_run() {
 
-    sw_state_use "F1"
+    sw_state_use "basquet"
 
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
@@ -190,23 +193,23 @@ sw_module_run() {
 
     sw_state_clear
 
-    F1_collect
+    BASQUET_collect
 
-    F1_analyze
+    BASQUET_analyze
 
-    sw_status_update "${F1_STATUS}" || return 1
+    sw_status_update "${BASQUET_STATUS}" || return 1
 
-    F1_update_state
+    BASQUET_update_state
 
     sw_state_save
 
-    F1_report
+    BASQUET_report
 
     # Optional: append to CSV history for sparkline widgets.
     #
     # sw_csv_append \
-    #     "F1" \
+    #     "BASQUET" \
     #     "value" \
-    #     "${F1_VALUE}"
+    #     "${BASQUET_VALUE}"
 
 }

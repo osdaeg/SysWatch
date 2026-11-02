@@ -9,7 +9,6 @@
 # Licensed under the MIT License.
 # -----------------------------------------------------------------------------
 
-
 MESSAGE_FROM_MODULE=""
 
 # -----------------------------------------------------------------------------
@@ -41,12 +40,12 @@ sw_message_send() {
         sw_state_set "message_from_module_${id}.from" "$sender"
 
         case $persist in
-            true|false)
-                sw_state_set "message_from_module_${id}.persist" "$persist"
-                ;;
-            *)
-                sw_state_set "message_from_module_${id}.persist" "false"
-                ;;
+        true | false)
+            sw_state_set "message_from_module_${id}.persist" "$persist"
+            ;;
+        *)
+            sw_state_set "message_from_module_${id}.persist" "false"
+            ;;
         esac
 
         sw_state_save
@@ -71,4 +70,45 @@ sw_message_load() {
         sw_state_delete_key "message_from_module_${id}.hidden"
         sw_state_delete_key "message_from_module_${id}.from"
     fi
+}
+
+sw_message_send_to_intercom() {
+
+    local sender="${MODULE_NAME}"
+    local file
+    local timestamp
+    local message="${1:-}"
+    local remote="${2:-}"
+    local hostname
+
+    [ -z "$message" ] && return 1
+
+    hostname="$(hostname)" || return 1
+
+    timestamp="$(date +"%d/%m/%Y %H:%M:%S")" || return 1
+
+    file="$(sw_cache_file "$(date +%s%N).message")" || return 1
+
+    {
+        printf 'hostname=%s\n' "$(printf '%s' "$hostname" | base64 -w 0)"
+        printf 'sender=%s\n' "$(printf '%s' "$sender" | base64 -w 0)"
+        printf 'date=%s\n' "$(printf '%s' "$timestamp" | base64 -w 0)"
+        printf 'message=%s\n' "$(printf '%s' "$message" | base64 -w 0)"
+    } >"$file" || return 1
+
+    if [[ -n "$remote" ]]; then
+
+        case ",${REMOTES}," in
+        *,"${remote}",*) ;;
+        *) return 1 ;;
+        esac
+
+        [ -d "${REMOTE_DIR}/${remote}" ] || return 1
+
+        cp "$file" "${REMOTE_DIR}/${remote}/" || return 1
+
+    fi
+
+    return 0
+
 }

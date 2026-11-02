@@ -14,12 +14,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Zombies"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Zombie process detection"
 readonly MODULE_VERSION="0.1.0"
-MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL=${MODULE_INTERVAL_NORMAL:-300}
 MODULE_ORDER=${MODULE_ORDER:-1000}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
-
 
 # -----------------------------------------------------------------------------
 # Module variables
@@ -28,7 +28,6 @@ MODULE_REMOTE=${MODULE_REMOTE:-""}
 ZOMBIE_COUNT=0
 ZOMBIE_STATUS="${SW_STATUS_UNKNOWN}"
 ZOMBIE_DETAILS=""
-
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -52,24 +51,22 @@ zombie_collect() {
 
     done < <(
         ps -eo pid=,ppid=,stat=,comm= |
-        awk '$3 ~ /^Z/ { print $1, $2, $3, $4 }'
+            awk '$3 ~ /^Z/ { print $1, $2, $3, $4 }'
     )
 
 }
-
 
 zombie_analyze() {
 
     ZOMBIE_STATUS="${SW_STATUS_OK}"
 
-    if (( ZOMBIE_COUNT > 0 )); then
+    if ((ZOMBIE_COUNT > 0)); then
 
         ZOMBIE_STATUS="${SW_STATUS_CRITICAL}"
 
     fi
 
 }
-
 
 zombie_update_state() {
 
@@ -94,14 +91,14 @@ zombie_update_state() {
     sw_state_set "count.unit" ""
     sw_state_set "count.order" "10"
 
-    if (( ZOMBIE_COUNT > 0 )); then
+    if ((ZOMBIE_COUNT > 0)); then
 
         sw_state_set "details" "${ZOMBIE_DETAILS}"
         sw_state_set "details.label" "$(sw_translate "Processes")"
         sw_state_set "details.widget" "message"
         sw_state_set "details.order" "20"
 
-    else    
+    else
         sw_state_set "details" "$(sw_translate "none")"
         sw_state_set "details.label" "$(sw_translate "Processes")"
         sw_state_set "details.widget" "message"
@@ -110,7 +107,6 @@ zombie_update_state() {
 
 }
 
-
 zombie_report() {
 
     sw_log_info \
@@ -118,7 +114,6 @@ zombie_report() {
         "Zombie processes: ${ZOMBIE_COUNT} (${ZOMBIE_STATUS})"
 
 }
-
 
 sw_module_run() {
 

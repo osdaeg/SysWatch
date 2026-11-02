@@ -14,10 +14,13 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Radar"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="RainViewer weather radar"
 readonly MODULE_VERSION="0.1.0"
 
 MODULE_INTERVAL=${MODULE_INTERVAL:-600}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-120}
 
 MODULE_REMOTE=${MODULE_REMOTE:-""}
@@ -33,7 +36,8 @@ RADAR_FILE=""
 # Paths
 # -----------------------------------------------------------------------------
 
-readonly RADAR_SCRIPT="${HELPERS_DIR}/rainviewer.py"
+#readonly RADAR_SCRIPT="${HELPERS_DIR}/rainviewer.py"
+readonly RADAR_SCRIPT="${HELPERS_DIR}/goes_clouds.py"
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -83,7 +87,7 @@ radar_collect() {
     if [[ ! -f "$RADAR_SCRIPT" ]]; then
         sw_log_error \
             "${MODULE_NAME}" \
-            "No se encontró rainviewer.py: ${RADAR_SCRIPT}"
+            "No se encontró goes_clouds.py: ${RADAR_SCRIPT}"
 
         RADAR_STATUS="${SW_STATUS_CRITICAL}"
         return
@@ -94,30 +98,29 @@ radar_collect() {
         WEATHER_LON="$WEATHER_LON" \
         CACHE_DIR="$CACHE_DIR" \
         HTML_DIR="$HTML_DIR" \
-        python3 "$RADAR_SCRIPT"
-    then
+        python3 "$RADAR_SCRIPT"; then
 
         sw_log_error \
             "${MODULE_NAME}" \
-            "Falló la ejecución de rainviewer.py"
+            "Falló la ejecución de goes_clouds.py"
 
         RADAR_STATUS="${SW_STATUS_CRITICAL}"
         return
     fi
 
-    RADAR_FILE="${HTML_DIR}/images/radar.png"
+    RADAR_FILE="${HTML_DIR}/images/nubes.png"
 
     if [[ ! -s "$RADAR_FILE" ]]; then
 
         sw_log_error \
             "${MODULE_NAME}" \
-            "RainViewer no generó ${RADAR_FILE}"
+            "GOES no generó ${RADAR_FILE}"
 
         RADAR_STATUS="${SW_STATUS_CRITICAL}"
         return
     fi
 
-    radar_debug >> "${CACHE_DIR}/radar_debug.log" 2>&1
+    radar_debug >>"${CACHE_DIR}/radar_debug.log" 2>&1
 
     #radar="$(sw_csv_last_values "weather" "radar" "1")"
 
@@ -129,16 +132,16 @@ radar_collect() {
         if [[ "$radar" == "1" ]]; then
             RADAR_STATUS="${SW_STATUS_CRITICAL}"
             MODULE_ORDER=2
-            MODULE_INTERVAL=30
+            MODULE_INTERVAL="$MODULE_INTERVAL_ALT"
         else
             RADAR_STATUS="${SW_STATUS_OK}"
             MODULE_ORDER=9000
-            MODULE_INTERVAL=3660
+            MODULE_INTERVAL="$MODULE_INTERVAL_NORMAL"
         fi
     else
         RADAR_STATUS="${SW_STATUS_OK}"
         MODULE_ORDER=9000
-        MODULE_INTERVAL=3660
+        MODULE_INTERVAL="$MODULE_INTERVAL_NORMAL"
     fi
 }
 
@@ -158,7 +161,7 @@ radar_update_state() {
     # Data
     # -------------------------------------------------------------------------
 
-    sw_state_set "image" "radar.png"
+    sw_state_set "image" "nubes.png"
 
     sw_state_set "image.label" "$(sw_translate "Radar image")"
     sw_state_set "image.widget" "image"
@@ -170,7 +173,7 @@ radar_update_state() {
     sw_state_set "status" "${RADAR_STATUS}"
 
     sw_state_set "radar.label" "$(sw_translate "Radar")"
-    sw_state_set "radar" "RainViewer"
+    sw_state_set "radar" "GOES"
     sw_state_set "radar.order" "10"
 
 }
@@ -181,13 +184,13 @@ radar_report() {
 
         sw_log_info \
             "${MODULE_NAME}" \
-            "Radar RainViewer actualizado correctamente."
+            "Radar GOES actualizado correctamente."
 
     else
 
         sw_log_error \
             "${MODULE_NAME}" \
-            "No se pudo actualizar el radar RainViewer."
+            "No se pudo actualizar el radar GOES."
 
     fi
 

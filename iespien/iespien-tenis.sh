@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 # SysWatch
 #
-# module UFC
+# module TENIS
 #
 # Requires IESPIEN (https://github.com/osdaeg/iespien)
 #
@@ -16,11 +16,14 @@
 # Module metadata
 # -----------------------------------------------------------------------------
 
-readonly MODULE_NAME="IESPIEN-UFC"
-readonly MODULE_DESCRIPTION="UFC events"
+readonly MODULE_NAME="IESPIEN-TENIS"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
+readonly MODULE_DESCRIPTION="TENIS events"
 readonly MODULE_VERSION="0.1.0"
 
 MODULE_INTERVAL=${MODULE_INTERVAL:-21400}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-9999}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -28,22 +31,22 @@ MODULE_REMOTE=${MODULE_REMOTE:-""}
 # Configuration
 # -----------------------------------------------------------------------------
 
-readonly UFC_WARNING="${UFC_WARNING:-80}"
-readonly UFC_CRITICAL="${UFC_CRITICAL:-95}"
+readonly TENIS_WARNING="${TENIS_WARNING:-80}"
+readonly TENIS_CRITICAL="${TENIS_CRITICAL:-95}"
 
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
 
-UFC_VALUE=0
-UFC_STATUS="${SW_STATUS_UNKNOWN}"
-UFC_EVENTS=()
+TENIS_VALUE=0
+TENIS_STATUS="${SW_STATUS_UNKNOWN}"
+TENIS_EVENTS=()
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
 
-UFC_collect() {
+TENIS_collect() {
 
     local anio mes dia
     local file cached item
@@ -53,13 +56,13 @@ UFC_collect() {
     mes=$(date +%m)
     dia=$(date +%d)
 
-    file="/home/daniel/docker/util/iespien/cache/ufc_${anio}-${mes}-${dia}.json"
+    file="/home/daniel/docker/util/iespien/cache/tenis_${anio}-${mes}-${dia}.json"
 
     [[ -f "$file" ]] || return 1
 
     sw_cache_copy "$file"
 
-    cached=$(sw_cache_file "ufc_${anio}-${mes}-${dia}.json")
+    cached=$(sw_cache_file "tenis_${anio}-${mes}-${dia}.json")
 
     [[ -f "$cached" ]] || return 1
 
@@ -72,7 +75,7 @@ UFC_collect() {
         escenario=$(jq -r '.escenario' <<<"$item")
         canales=$(jq -r '.canales | join(", ")' <<<"$item")
 
-        UFC_EVENTS+=(
+        TENIS_EVENTS+=(
             "${competicion}|${contrincantes}|${fecha}|${hora}|${escenario}|${canales}"
         )
 
@@ -87,27 +90,27 @@ UFC_collect() {
     ' "$cached"
     )
 
-    #printf '%s\n' "${UFC_EVENTS[@]}"
+    #printf '%s\n' "${TENIS_EVENTS[@]}"
 
 }
 
-UFC_analyze() {
+TENIS_analyze() {
 
-    UFC_STATUS="${SW_STATUS_OK}"
+    TENIS_STATUS="${SW_STATUS_OK}"
 
-    if ((UFC_VALUE >= UFC_CRITICAL)); then
+    if ((TENIS_VALUE >= TENIS_CRITICAL)); then
 
-        UFC_STATUS="${SW_STATUS_CRITICAL}"
+        TENIS_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif ((UFC_VALUE >= UFC_WARNING)); then
+    elif ((TENIS_VALUE >= TENIS_WARNING)); then
 
-        UFC_STATUS="${SW_STATUS_WARNING}"
+        TENIS_STATUS="${SW_STATUS_WARNING}"
 
     fi
 
 }
 
-UFC_update_state() {
+TENIS_update_state() {
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
@@ -115,8 +118,8 @@ UFC_update_state() {
     # Module metadata (consumed by lib/html.sh)
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "$(sw_translate "UFC")"
-    sw_state_set "module.icon" "sports/ufc"
+    sw_state_set "module.label" "$(sw_translate "Tennis")"
+    sw_state_set "module.icon" "sports/tenis"
     sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
@@ -132,7 +135,7 @@ UFC_update_state() {
     local previous="previo"
     local event
 
-    for data in "${UFC_EVENTS[@]}"; do
+    for data in "${TENIS_EVENTS[@]}"; do
 
         IFS='|' read -r competicion contrincantes fecha hora escenario canales <<<"$data"
 
@@ -170,17 +173,17 @@ UFC_update_state() {
 
 }
 
-UFC_report() {
+TENIS_report() {
 
     sw_log_info \
         "${MODULE_NAME}" \
-        "UFC value: ${UFC_VALUE} (${UFC_STATUS})"
+        "TENIS value: ${TENIS_VALUE} (${TENIS_STATUS})"
 
 }
 
 sw_module_run() {
 
-    sw_state_use "ufc"
+    sw_state_use "tenis"
 
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
@@ -190,23 +193,23 @@ sw_module_run() {
 
     sw_state_clear
 
-    UFC_collect
+    TENIS_collect
 
-    UFC_analyze
+    TENIS_analyze
 
-    sw_status_update "${UFC_STATUS}" || return 1
+    sw_status_update "${TENIS_STATUS}" || return 1
 
-    UFC_update_state
+    TENIS_update_state
 
     sw_state_save
 
-    UFC_report
+    TENIS_report
 
     # Optional: append to CSV history for sparkline widgets.
     #
     # sw_csv_append \
-    #     "UFC" \
+    #     "TENIS" \
     #     "value" \
-    #     "${UFC_VALUE}"
+    #     "${TENIS_VALUE}"
 
 }

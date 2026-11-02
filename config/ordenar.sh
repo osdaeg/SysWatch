@@ -13,6 +13,6 @@ fi
 cp "$ARCHIVO_ENTRADA" "$ARCHIVO_SALIDA"
 
 # Ordenar por el segundo campo usando '|' como delimitador
-sort -t'|' -k2,2n "$ARCHIVO_SALIDA" > "$ARCHIVO_ENTRADA"
+sort -t'|' -k4,4n "$ARCHIVO_SALIDA" > "$ARCHIVO_ENTRADA"
 
 echo "Archivo ordenado con éxito. Backup guardado en: $ARCHIVO_SALIDA"

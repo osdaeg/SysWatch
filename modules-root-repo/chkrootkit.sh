@@ -29,12 +29,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Chkrootkit"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="chkrootkit log monitoring (does not run scans itself)"
 readonly MODULE_VERSION="0.1.0"
-MODULE_INTERVAL=${MODULE_INTERVAL:-3660}
+MODULE_INTERVAL=${MODULE_INTERVAL_NORMAL:-3660}
 MODULE_ORDER=${MODULE_ORDER:-55}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
-
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -77,15 +77,14 @@ chkrootkit_collect() {
     fi
 
     CHKROOTKIT_LOG_MTIME="$(stat -c %Y "${CHKROOTKIT_LOG}" 2>/dev/null)"
-    CHKROOTKIT_LOG_AGE_HOURS=$(( ( $(date +%s) - CHKROOTKIT_LOG_MTIME ) / 3600 ))
+    CHKROOTKIT_LOG_AGE_HOURS=$((($(date +%s) - CHKROOTKIT_LOG_MTIME) / 3600))
 
     CHKROOTKIT_WARNINGS=0
     CHKROOTKIT_INFECTED=0
 
     local line
 
-    while IFS= read -r line
-    do
+    while IFS= read -r line; do
 
         # Anchored at end-of-line on purpose: the free-text detail lines
         # that follow a warning (e.g. "WARNING: The following suspicious
@@ -98,15 +97,15 @@ chkrootkit_collect() {
             # latter returns the PRE-increment value as its exit status,
             # which is 0 (false) on the very first match and would trip
             # errexit. Assignment is always exit-status 0.
-            CHKROOTKIT_INFECTED=$(( CHKROOTKIT_INFECTED + 1 ))
+            CHKROOTKIT_INFECTED=$((CHKROOTKIT_INFECTED + 1))
 
         elif [[ "${line}" =~ WARNING$ ]]; then
 
-            CHKROOTKIT_WARNINGS=$(( CHKROOTKIT_WARNINGS + 1 ))
+            CHKROOTKIT_WARNINGS=$((CHKROOTKIT_WARNINGS + 1))
 
         fi
 
-    done < "${CHKROOTKIT_LOG}"
+    done <"${CHKROOTKIT_LOG}"
 
 }
 
@@ -117,11 +116,10 @@ chkrootkit_analyze() {
     WARNING_LIST=()
     CHKROOTKIT_FALSE_POSITIVES=0
     WARNING_OK_LIST=()
-    
+
     local chkrootkit_eval=""
     local warning_type=""
     local warning_status=""
-
 
     # -------------------------------------------------------------------------
     # Evaluate warnings validated by chkrootkit_eval.sh
@@ -129,8 +127,7 @@ chkrootkit_analyze() {
 
     if sw_cache_exists "chkrootkit.status"; then
 
-        while IFS= read -r line
-        do
+        while IFS= read -r line; do
 
             # Expected format:
             #
@@ -144,22 +141,22 @@ chkrootkit_analyze() {
 
                 case "${warning_status}" in
 
-                    OK)
+                OK)
 
-                        CHKROOTKIT_FALSE_POSITIVES=$(( CHKROOTKIT_FALSE_POSITIVES + 1 ))
-                        if (( CHKROOTKIT_WARNINGS > 0 )); then
-                            CHKROOTKIT_WARNINGS=$(( CHKROOTKIT_WARNINGS - 1 ))
-                        fi
+                    CHKROOTKIT_FALSE_POSITIVES=$((CHKROOTKIT_FALSE_POSITIVES + 1))
+                    if ((CHKROOTKIT_WARNINGS > 0)); then
+                        CHKROOTKIT_WARNINGS=$((CHKROOTKIT_WARNINGS - 1))
+                    fi
 
-                        WARNING_OK_LIST+=( "${warning_type}" )
+                    WARNING_OK_LIST+=("${warning_type}")
 
-                        ;;
+                    ;;
 
-                    WARNING|UNKNOWN)
+                WARNING | UNKNOWN)
 
-                        WARNING_LIST+=( "${warning_type}" )
+                    WARNING_LIST+=("${warning_type}")
 
-                        ;;
+                    ;;
 
                 esac
 
@@ -169,41 +166,37 @@ chkrootkit_analyze() {
 
     fi
 
-
     # -------------------------------------------------------------------------
     # Any warnings that remain after the evaluator are real/unresolved.
     # -------------------------------------------------------------------------
 
-    if (( CHKROOTKIT_WARNINGS > 0 )); then
+    if ((CHKROOTKIT_WARNINGS > 0)); then
 
         # If the evaluator didn't identify the remaining warnings individually,
         # keep the generic warning count for the overall status.
         :
-        
-    fi
 
+    fi
 
     # -------------------------------------------------------------------------
     # Determine status
     # -------------------------------------------------------------------------
 
-    if (( CHKROOTKIT_INFECTED > 0 )); then
+    if ((CHKROOTKIT_INFECTED > 0)); then
 
         CHKROOTKIT_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif (( CHKROOTKIT_WARNINGS > 0 )); then
+    elif ((CHKROOTKIT_WARNINGS > 0)); then
 
         CHKROOTKIT_STATUS="${SW_STATUS_WARNING}"
 
     fi
 
-
     # A stale log (chkrootkit's own cron seems to have stopped running)
     # is worth flagging, but shouldn't downgrade a worse status already
     # found.
-    if (( CHKROOTKIT_LOG_AGE_HOURS > CHKROOTKIT_MAX_AGE_HOURS )) &&
-       [[ "${CHKROOTKIT_STATUS}" == "${SW_STATUS_OK}" ]]
-    then
+    if ((CHKROOTKIT_LOG_AGE_HOURS > CHKROOTKIT_MAX_AGE_HOURS)) &&
+        [[ "${CHKROOTKIT_STATUS}" == "${SW_STATUS_OK}" ]]; then
 
         CHKROOTKIT_STATUS="${SW_STATUS_WARNING}"
 
@@ -219,18 +212,18 @@ chkrootkit_update_state() {
 
     sw_state_set "module.label" "Chkrootkit"
     case "${CHKROOTKIT_STATUS}" in
-        OK)
-            sw_state_set "module.icon" "lucide/shield-check"
-            ;;
-        WARNING)
-            sw_state_set "module.icon" "lucide/shield-alert"
-            ;;
-        CRITICAL)
-            sw_state_set "module.icon" "lucide/shield-x"
-            ;;
-        *)
-            sw_state_set "module.icon" "lucide/shield"
-            ;;
+    OK)
+        sw_state_set "module.icon" "lucide/shield-check"
+        ;;
+    WARNING)
+        sw_state_set "module.icon" "lucide/shield-alert"
+        ;;
+    CRITICAL)
+        sw_state_set "module.icon" "lucide/shield-x"
+        ;;
+    *)
+        sw_state_set "module.icon" "lucide/shield"
+        ;;
     esac
 
     sw_state_set "module.order" "$MODULE_ORDER"
@@ -249,16 +242,15 @@ chkrootkit_update_state() {
     sw_state_set "warnings.label" "$(sw_translate "Warnings")"
     sw_state_set "warnings.order" "20"
 
-    for i in "${!WARNING_LIST[@]}"
-    do
-    echo "${WARNING_LIST[$i]}"
-        order=$(( order + 10 ))
+    for i in "${!WARNING_LIST[@]}"; do
+        echo "${WARNING_LIST[$i]}"
+        order=$((order + 10))
         sw_state_set "warning${i}" "${WARNING_LIST[$i]}"
         sw_state_set "warning${i}.label" "$(printf "$(sw_translate "Warning %s")\n" "$((i + 1))")"
         sw_state_set "warning${i}.order" "$order"
     done
 
-    order=$(( order + 10 ))
+    order=$((order + 10))
 
     for key in "${!SW_STATE[@]}"; do
         if [[ "$key" =~ ^false[0-9]+(\.(label|order))?$ ]]; then
@@ -269,22 +261,20 @@ chkrootkit_update_state() {
     sw_state_set "falses" "${CHKROOTKIT_FALSE_POSITIVES}"
     sw_state_set "falses.label" "$(sw_translate "False positives")"
     sw_state_set "falses.order" "$order"
-    
-    for i in "${!WARNING_OK_LIST[@]}"
-    do
-        order=$(( order + 10 ))
+
+    for i in "${!WARNING_OK_LIST[@]}"; do
+        order=$((order + 10))
         sw_state_set "false${i}" "${WARNING_OK_LIST[$i]}"
         sw_state_set "false${i}.label" "$(printf "$(sw_translate "False %s")\n" "$((i + 1))")"
         sw_state_set "false${i}.order" "$order"
     done
 
-    order=$(( order + 10 ))
+    order=$((order + 10))
 
     sw_state_set "last_scan" "$(date -d "@${CHKROOTKIT_LOG_MTIME}" '+%Y-%m-%d %H:%M' 2>/dev/null)"
     sw_state_set "last_scan.label" "$(sw_translate "Last run")"
     sw_state_set "last_scan.order" "$order"
 
-    
 }
 
 chkrootkit_report() {
@@ -302,7 +292,7 @@ sw_module_run() {
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
     fi
-    
+
     sw_state_load
 
     chkrootkit_collect || return 1

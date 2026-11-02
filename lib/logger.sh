@@ -14,22 +14,22 @@
 # -----------------------------------------------------------------------------
 
 sw_log_rename() {
-    
+
     local ayer
     ayer=$(date -d "yesterday" '+%Y-%m-%d')
-    
+
     local archivo_origen="$(sw_log_file)"
     local archivo_destino="${LOG_DIR}/syswatch-${ayer}.log"
-    
+
     if [ ! -f "$archivo_origen" ]; then
         return 1
     fi
-    
+
     if [ -f "$archivo_destino" ]; then
         return 0
-    else    
+    else
         if cp "$archivo_origen" "$archivo_destino"; then
-            > "$archivo_origen"
+            >"$archivo_origen"
             return 0
         else
             return 1
@@ -37,7 +37,6 @@ sw_log_rename() {
     fi
 
 }
-
 
 sw_log_file() {
 
@@ -58,7 +57,20 @@ sw_log() {
         "$level" \
         "$module" \
         "$message" \
-        >> "$(sw_log_file)"
+        >>"$(sw_log_file)"
+
+    case "$level" in
+    WARNING | CRITICAL | ERROR)
+        [[ "${INTERCOM_ENABLE}" == "true" ]] && {
+            #MODULE_NAME="${module}"
+            MODULE_REMOTE="${MODULE_REMOTE:-}"
+            if [[ "$module" != "Lock" ]]; then
+                sw_message_send_to_intercom "<span style=\"color: red\">($level)</span> $message" "$MODULE_REMOTE"
+            fi
+        }
+        ;;
+    *) ;;
+    esac
 
 }
 
@@ -67,15 +79,15 @@ sw_log_execution() {
     sw_mkdir "$LOG_DIR"
 
     printf '\n============================================================\n' \
-        >> "$(sw_log_file)"
+        >>"$(sw_log_file)"
 
     printf 'SysWatch v%s - Execution started - %s\n' \
         "$SW_VERSION" \
         "$(sw_timestamp)" \
-        >> "$(sw_log_file)"
+        >>"$(sw_log_file)"
 
     printf '============================================================\n' \
-        >> "$(sw_log_file)"
+        >>"$(sw_log_file)"
 
 }
 

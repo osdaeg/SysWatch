@@ -22,9 +22,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Docker"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Docker container health monitoring"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-240}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-60}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -63,6 +66,24 @@ DOCKER_HEALTH=()
 DOCKER_RUNNING_STATE=()
 DOCKER_RESTART_POLICY=()
 DOCKER_STATUS=()
+
+DOCKER_DAEMON_AVAILABLE=0
+DOCKER_OVERVIEW_STATUS="${SW_STATUS_OK}"
+
+DOCKER_TOTAL=0
+DOCKER_RUNNING=0
+DOCKER_STOPPED=0
+DOCKER_PROBLEMS=0
+
+DOCKER_ALL_NAMES=()
+DOCKER_ALL_STATES=()
+
+DOCKER_CPU=""
+
+DOCKER_WARNING=80
+DOCKER_CRITICAL=95
+
+DOCKER_CONTAINER_CPU=()
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -129,6 +150,7 @@ docker_discover() {
     DOCKER_HEALTH=()
     DOCKER_RUNNING_STATE=()
     DOCKER_RESTART_POLICY=()
+    DOCKER_STATUS=()
 
     # -aq (not just -q): a crashed container with no healthcheck defined
     # only shows up here if we also include stopped containers -- with
@@ -163,7 +185,22 @@ docker_discover() {
 
 docker_collect() {
 
-    sw_require_command docker || return 127
+    local name
+    local state
+
+    DOCKER_DAEMON_AVAILABLE=0
+
+    DOCKER_KEYS=()
+    DOCKER_NAMES=()
+    DOCKER_HEALTH=()
+    DOCKER_RUNNING_STATE=()
+    DOCKER_RESTART_POLICY=()
+    DOCKER_STATUS=()
+
+    DOCKER_ALL_NAMES=()
+    DOCKER_ALL_STATES=()
+
+    sw_require_command docker || return 0
 
     docker ps >/dev/null 2>&1 || {
 
@@ -171,17 +208,135 @@ docker_collect() {
             "${MODULE_NAME}" \
             "Cannot reach the Docker daemon (not running, or permission denied)"
 
-        return 1
+        return 0
 
     }
 
+    DOCKER_DAEMON_AVAILABLE=1
+
+    # Inventario completo para Docker Overview.
+    while IFS='|' read -r name state; do
+
+        [[ -z "${name}" ]] && continue
+
+        DOCKER_ALL_NAMES+=("${name}")
+        DOCKER_ALL_STATES+=("${state}")
+
+    done < <(
+        docker ps -a \
+            --format '{{.Names}}|{{.State}}' \
+            2>/dev/null
+    )
+
+    # Inventario filtrado para las fichas individuales.
     docker_discover
+
+}
+
+docker_collect_cpu() {
+
+    local stats
+    local name
+    local cpu
+    local value
+    local total
+    local i
+
+    DOCKER_CPU=""
+    DOCKER_CONTAINER_CPU=()
+
+    ((DOCKER_DAEMON_AVAILABLE)) || return 1
+
+        # Inicializar valores individuales.
+    # Los contenedores detenidos tienen consumo 0.
+    # Los que están ejecutándose esperan su dato de docker stats.
+    for ((i = 0; i < ${#DOCKER_KEYS[@]}; i++)); do
+
+        if [[ "${DOCKER_RUNNING_STATE[$i]}" == "running" ]]; then
+            DOCKER_CONTAINER_CPU[$i]=""
+        else
+            DOCKER_CONTAINER_CPU[$i]="0"
+        fi
+
+    done
+
+    stats="$(docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}' 2>/dev/null)" ||
+        return 1
+
+    # Asociar cada medición con su contenedor.
+    while IFS='|' read -r name cpu; do
+
+        [[ -z "${name}" || -z "${cpu}" ]] && continue
+
+        value="${cpu%\%}"
+
+        [[ "${value}" =~ ^[0-9]+([.][0-9]+)?$ ]] || continue
+
+        for ((i = 0; i < ${#DOCKER_NAMES[@]}; i++)); do
+
+            if [[ "${DOCKER_NAMES[$i]}" == "${name}" ]]; then
+
+                DOCKER_CONTAINER_CPU[$i]="${value}"
+                break
+
+            fi
+
+        done
+
+    done <<< "${stats}"
+
+    # Sumar el consumo de todos los contenedores en ejecución,
+    # incluidos aquellos que no tienen ficha individual.
+    total="$(
+        awk -F'|' '
+            {
+                value = $2
+                sub(/%$/, "", value)
+
+                if (value ~ /^[0-9]+([.][0-9]+)?$/) {
+                    sum += value
+                }
+            }
+
+            END {
+                printf "%.0f\n", sum
+            }
+        ' <<< "${stats}"
+    )" || return 1
+
+    DOCKER_CPU="${total}"
 
 }
 
 docker_analyze() {
 
     local i
+    local state
+
+    DOCKER_TOTAL=0
+    DOCKER_RUNNING=0
+    DOCKER_STOPPED=0
+    DOCKER_PROBLEMS=0
+
+    if ((!DOCKER_DAEMON_AVAILABLE)); then
+
+        DOCKER_OVERVIEW_STATUS="${SW_STATUS_CRITICAL}"
+
+        return 0
+
+    fi
+
+    DOCKER_TOTAL="${#DOCKER_ALL_NAMES[@]}"
+
+    for state in "${DOCKER_ALL_STATES[@]}"; do
+
+        if [[ "${state}" == "running" ]]; then
+            ((DOCKER_RUNNING += 1))
+        else
+            ((DOCKER_STOPPED += 1))
+        fi
+
+    done
 
     for ((i = 0; i < ${#DOCKER_KEYS[@]}; i++)); do
 
@@ -189,28 +344,127 @@ docker_analyze() {
 
         if [[ "${DOCKER_HEALTH[$i]}" == "none" ]]; then
 
-            # No healthcheck defined -- the only signal we have is
-            # whether the container is actually running. A container
-            # with restart policy always/unless-stopped that isn't
-            # "running" almost certainly crashed (Docker would have
-            # already restarted it otherwise).
             if [[ "${DOCKER_RUNNING_STATE[$i]}" != "running" ]]; then
 
                 DOCKER_STATUS[$i]="${SW_STATUS_CRITICAL}"
 
             fi
 
-        else
+        elif [[ "${DOCKER_HEALTH[$i]}" == "unhealthy" ]]; then
 
-            if [[ "${DOCKER_HEALTH[$i]}" == "unhealthy" ]]; then
+            DOCKER_STATUS[$i]="${SW_STATUS_CRITICAL}"
 
-                DOCKER_STATUS[$i]="${SW_STATUS_CRITICAL}"
+        fi
 
-            fi
+        if [[ "${DOCKER_STATUS[$i]}" == "${SW_STATUS_CRITICAL}" ]]; then
+
+            ((DOCKER_PROBLEMS += 1))
 
         fi
 
     done
+
+    DOCKER_OVERVIEW_STATUS="${SW_STATUS_OK}"
+
+    if ((DOCKER_PROBLEMS > 0)); then
+
+        DOCKER_OVERVIEW_STATUS="${SW_STATUS_CRITICAL}"
+
+    fi
+
+}
+
+docker_update_overview_state() {
+
+    local key="docker_overview"
+    local daemon
+    local total
+    local running
+    local stopped
+    local problems
+    local cpu_max
+
+    sw_state_use "${key}"
+    sw_state_load
+
+    cpu_max="$(sw_state_get "cpu_max")"
+
+    [[ -z "$cpu_max" ]] && cpu_max=100
+
+    if ((DOCKER_CPU >= cpu_max)); then
+
+        cpu_max="$DOCKER_CPU"
+
+    fi
+
+    sw_state_set "cpu_max" "$cpu_max"
+    sw_state_set "cpu_max.hidden" "true"
+
+    if ((DOCKER_DAEMON_AVAILABLE)); then
+
+        daemon="$(sw_translate "Available")"
+        total="${DOCKER_TOTAL}"
+        running="${DOCKER_RUNNING}"
+        stopped="${DOCKER_STOPPED}"
+        problems="${DOCKER_PROBLEMS}"
+
+        sw_state_set "cpu" "${DOCKER_CPU}"
+        sw_state_set "cpu.label" "CPU"
+        sw_state_set "cpu.widget" "line"
+        sw_state_set "cpu.unit" "%"
+        sw_state_set "cpu.order" "60"
+        sw_state_set "cpu.warning" "${DOCKER_WARNING}"
+        sw_state_set "cpu.critical" "${DOCKER_CRITICAL}"
+        sw_state_set "cpu.scale" "fixed"
+        sw_state_set "cpu.min" "0"
+        sw_state_set "cpu.max" "$cpu_max"
+
+        sw_csv_append "docker_overview" "cpu" "${DOCKER_CPU}"
+
+    else
+
+        daemon="$(sw_translate "Unavailable")"
+        total="—"
+        running="—"
+        stopped="—"
+        problems="—"
+
+        sw_state_delete_key "cpu"
+
+    fi
+
+    sw_status_update "${DOCKER_OVERVIEW_STATUS}" "${key}" || true
+
+    sw_state_set "module_version" "${MODULE_VERSION}"
+
+    sw_state_set "module.label" "Docker Overview"
+    sw_state_set "module.icon" "lucide/docker"
+    #sw_state_set "module.order" "$((MODULE_ORDER - 1))"
+    sw_state_set "module.order" "900"
+
+    sw_state_set "daemon" "${daemon}"
+    sw_state_set "daemon.label" "$(sw_translate "Docker daemon")"
+    sw_state_set "daemon.order" "10"
+
+    sw_state_set "containers" "${total}"
+    sw_state_set "containers.label" "$(sw_translate "Watched containers")"
+    sw_state_set "containers.order" "20"
+
+    sw_state_set "running" "${running}"
+    sw_state_set "running.label" "$(sw_translate "Running")"
+    sw_state_set "running.order" "30"
+
+    sw_state_set "stopped" "${stopped}"
+    sw_state_set "stopped.label" "$(sw_translate "Stopped")"
+    sw_state_set "stopped.order" "40"
+
+    sw_state_set "problems" "${problems}"
+    sw_state_set "problems.label" "$(sw_translate "Problems")"
+    sw_state_set "problems.order" "50"
+
+    sw_timer_create "${key}" "10" "deletestate"
+
+    sw_state_save
 
 }
 
@@ -218,6 +472,12 @@ docker_update_state() {
 
     local i
     local key
+    local cpu_csv
+    local cpu_max
+
+    docker_update_overview_state
+
+    ((DOCKER_DAEMON_AVAILABLE)) || return 0
 
     for ((i = 0; i < ${#DOCKER_KEYS[@]}; i++)); do
 
@@ -233,6 +493,44 @@ docker_update_state() {
         sw_state_set "module.label" "${DOCKER_NAMES[$i]}"
         sw_state_set "module.icon" "lucide/docker"
         sw_state_set "module.order" "$MODULE_ORDER"
+
+        sw_state_delete_key "cpu"
+
+        if [[ -n "${DOCKER_CONTAINER_CPU[$i]}" ]]; then
+
+            sw_state_set "cpu" "${DOCKER_CONTAINER_CPU[$i]}"
+            sw_state_set "cpu.label" "CPU"
+            sw_state_set "cpu.unit" "%"
+            sw_state_set "cpu.order" "60"
+
+            cpu_csv="$(awk \
+                -v value="${DOCKER_CONTAINER_CPU[$i]}" \
+                'BEGIN { printf "%.0f", value }')"
+
+            sw_csv_append "${key}" "cpu" "${DOCKER_CPU}"
+
+            cpu_max="$(sw_state_get "cpu_max")"
+
+            cpu_max=${cpu_max:-$cpu_csv}
+
+            if ((cpu_csv >= cpu_max)); then
+                cpu_max="$cpu_csv"
+
+                sw_state_set "cpu_max" "$cpu_max"
+                sw_state_set "cpu_max.hidden" "true"
+            fi
+
+            if ((cpu_csv >= 50)); then
+                sw_state_set "cpu.widget" "line"
+                sw_state_set "cpu.order" "60"
+                sw_state_set "cpu.warning" "${DOCKER_WARNING}"
+                sw_state_set "cpu.critical" "${DOCKER_CRITICAL}"
+                sw_state_set "cpu.scale" "fixed"
+                sw_state_set "cpu.min" "0"
+                sw_state_set "cpu.max" "$cpu_max"
+            fi
+
+        fi
 
         if [[ "${DOCKER_HEALTH[$i]}" == "none" ]]; then
 
@@ -268,6 +566,10 @@ docker_report() {
     local i
     local summary=""
     local signal
+
+    if ((!DOCKER_DAEMON_AVAILABLE)); then
+        return 0
+    fi
 
     for ((i = 0; i < ${#DOCKER_KEYS[@]}; i++)); do
 
@@ -310,6 +612,8 @@ sw_module_run() {
     fi
 
     docker_collect || return 1
+
+    docker_collect_cpu
 
     docker_analyze
 

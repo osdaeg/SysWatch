@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 # SysWatch
 #
-# module AUTOMOVILISMO
+# module F1
 #
 # Requires IESPIEN (https://github.com/osdaeg/iespien)
 #
@@ -16,11 +16,14 @@
 # Module metadata
 # -----------------------------------------------------------------------------
 
-readonly MODULE_NAME="IESPIEN-AUTOMOVILISMO"
-readonly MODULE_DESCRIPTION="AUTOMOVILISMO events"
+readonly MODULE_NAME="IESPIEN-F1"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
+readonly MODULE_DESCRIPTION="F1 events"
 readonly MODULE_VERSION="0.1.0"
 
 MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-10}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -28,22 +31,22 @@ MODULE_REMOTE=${MODULE_REMOTE:-""}
 # Configuration
 # -----------------------------------------------------------------------------
 
-readonly AUTOMOVILISMO_WARNING="${AUTOMOVILISMO_WARNING:-80}"
-readonly AUTOMOVILISMO_CRITICAL="${AUTOMOVILISMO_CRITICAL:-95}"
+readonly F1_WARNING="${F1_WARNING:-80}"
+readonly F1_CRITICAL="${F1_CRITICAL:-95}"
 
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
 
-AUTOMOVILISMO_VALUE=0
-AUTOMOVILISMO_STATUS="${SW_STATUS_UNKNOWN}"
-AUTOMOVILISMO_EVENTS=()
+F1_VALUE=0
+F1_STATUS="${SW_STATUS_UNKNOWN}"
+F1_EVENTS=()
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
 
-AUTOMOVILISMO_collect() {
+F1_collect() {
 
     local anio mes dia
     local file cached item
@@ -53,13 +56,13 @@ AUTOMOVILISMO_collect() {
     mes=$(date +%m)
     dia=$(date +%d)
 
-    file="/home/daniel/docker/util/iespien/cache/automovilismo_en_argentina_${anio}-${mes}-${dia}.json"
+    file="/home/daniel/docker/util/iespien/cache/fórmula_1_${anio}-${mes}-${dia}.json"
 
     [[ -f "$file" ]] || return 1
 
     sw_cache_copy "$file"
 
-    cached=$(sw_cache_file "automovilismo_en_argentina_${anio}-${mes}-${dia}.json")
+    cached=$(sw_cache_file "fórmula_1_${anio}-${mes}-${dia}.json")
 
     [[ -f "$cached" ]] || return 1
 
@@ -72,7 +75,7 @@ AUTOMOVILISMO_collect() {
         escenario=$(jq -r '.escenario' <<<"$item")
         canales=$(jq -r '.canales | join(", ")' <<<"$item")
 
-        AUTOMOVILISMO_EVENTS+=(
+        F1_EVENTS+=(
             "${competicion}|${contrincantes}|${fecha}|${hora}|${escenario}|${canales}"
         )
 
@@ -87,27 +90,27 @@ AUTOMOVILISMO_collect() {
     ' "$cached"
     )
 
-    #printf '%s\n' "${AUTOMOVILISMO_EVENTS[@]}"
+    #printf '%s\n' "${F1_EVENTS[@]}"
 
 }
 
-AUTOMOVILISMO_analyze() {
+F1_analyze() {
 
-    AUTOMOVILISMO_STATUS="${SW_STATUS_OK}"
+    F1_STATUS="${SW_STATUS_OK}"
 
-    if ((AUTOMOVILISMO_VALUE >= AUTOMOVILISMO_CRITICAL)); then
+    if ((F1_VALUE >= F1_CRITICAL)); then
 
-        AUTOMOVILISMO_STATUS="${SW_STATUS_CRITICAL}"
+        F1_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif ((AUTOMOVILISMO_VALUE >= AUTOMOVILISMO_WARNING)); then
+    elif ((F1_VALUE >= F1_WARNING)); then
 
-        AUTOMOVILISMO_STATUS="${SW_STATUS_WARNING}"
+        F1_STATUS="${SW_STATUS_WARNING}"
 
     fi
 
 }
 
-AUTOMOVILISMO_update_state() {
+F1_update_state() {
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
@@ -115,8 +118,8 @@ AUTOMOVILISMO_update_state() {
     # Module metadata (consumed by lib/html.sh)
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "$(sw_translate "Motoring")"
-    sw_state_set "module.icon" "sports/auto"
+    sw_state_set "module.label" "$(sw_translate "F1")"
+    sw_state_set "module.icon" "sports/f1"
     sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
@@ -130,8 +133,9 @@ AUTOMOVILISMO_update_state() {
     local competition=1
     local order=10
     local previous="previo"
-    local evento
-    for data in "${AUTOMOVILISMO_EVENTS[@]}"; do
+    local event
+
+    for data in "${F1_EVENTS[@]}"; do
 
         IFS='|' read -r competicion contrincantes fecha hora escenario canales <<<"$data"
 
@@ -147,39 +151,39 @@ AUTOMOVILISMO_update_state() {
             sw_state_set "evento${row}-${competition}" "$event"
             sw_state_set "evento${row}-${competition}.label" "$row"
             sw_state_set "evento${row}-${competition}.order" "$order"
-            ((row++))
         else
             sw_state_set "competicion${competition}" "$competicion"
             sw_state_set "competicion${competition}.label" "$(sw_translate "Competition")"
             sw_state_set "competicion${competition}.order" "$order"
             sw_state_set "competicion${competition}.color" "green"
-            ((competition++))
+
             row=1
             previous="$competicion"
             ((order++))
             sw_state_set "evento${row}-${competition}" "$event"
             sw_state_set "evento${row}-${competition}.label" "$row"
             sw_state_set "evento${row}-${competition}.order" "$order"
-            ((row++))
+            ((competition++))
         fi
 
         ((order++))
+        ((row++))
 
     done
 
 }
 
-AUTOMOVILISMO_report() {
+F1_report() {
 
     sw_log_info \
         "${MODULE_NAME}" \
-        "AUTOMOVILISMO value: ${AUTOMOVILISMO_VALUE} (${AUTOMOVILISMO_STATUS})"
+        "F1 value: ${F1_VALUE} (${F1_STATUS})"
 
 }
 
 sw_module_run() {
 
-    sw_state_use "automovilismo"
+    sw_state_use "F1"
 
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
@@ -189,23 +193,23 @@ sw_module_run() {
 
     sw_state_clear
 
-    AUTOMOVILISMO_collect
+    F1_collect
 
-    AUTOMOVILISMO_analyze
+    F1_analyze
 
-    sw_status_update "${AUTOMOVILISMO_STATUS}" || return 1
+    sw_status_update "${F1_STATUS}" || return 1
 
-    AUTOMOVILISMO_update_state
+    F1_update_state
 
     sw_state_save
 
-    AUTOMOVILISMO_report
+    F1_report
 
     # Optional: append to CSV history for sparkline widgets.
     #
     # sw_csv_append \
-    #     "AUTOMOVILISMO" \
+    #     "F1" \
     #     "value" \
-    #     "${AUTOMOVILISMO_VALUE}"
+    #     "${F1_VALUE}"
 
 }

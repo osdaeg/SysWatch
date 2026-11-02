@@ -44,7 +44,7 @@ sw_module_should_run() {
     now=$(date +%s)
     last=$(<"${stamp}")
 
-    (( now - last >= interval ))
+    ((now - last >= interval))
 
 }
 
@@ -52,7 +52,7 @@ sw_module_touch() {
 
     local module="$1"
 
-    date +%s > "${STATE_DIR}/.${module}.last_run"
+    date +%s >"${STATE_DIR}/.${module}.last_run"
 
 }
 
@@ -79,18 +79,84 @@ sw_run_module() {
         fi
 
         sw_module_global_config_load "${MODULE_NAME}"
-    
-        if sw_module_should_run "${MODULE_NAME}" "${MODULE_INTERVAL}"
-        then
 
-            echo "${module}" >> /home/daniel/scripts/syswatch/secuencia_modulos.txt
+        if sw_module_should_run "${MODULE_NAME}" "${MODULE_INTERVAL}"; then
+
+            echo "${module}" >>/home/daniel/scripts/syswatch/secuencia_modulos.txt
+
+            echo "Ejecutando ${module}"
 
             sw_module_run
 
             sw_module_touch "${MODULE_NAME}"
 
-            sw_module_global_config_save "${MODULE_NAME}" "${MODULE_INTERVAL}" "${MODULE_ORDER}" "${MODULE_REMOTE}"
-            
+            MODULE_INTERVAL_NORMAL="${MODULE_INTERVAL_NORMAL:-$MODULE_INTERVAL}"
+            MODULE_INTERVAL_ALT="${MODULE_INTERVAL_ALT:-$MODULE_INTERVAL_NORMAL}"
+
+            sw_module_global_config_save "${MODULE_NAME}" "${MODULE_INTERVAL}" "${MODULE_INTERVAL_NORMAL}" "${MODULE_INTERVAL_ALT}" "${MODULE_ORDER}" "${MODULE_REMOTE}"
+
+        else
+            sw_log_info \
+                "${MODULE_NAME}" \
+                "Skipping ${MODULE_NAME}"
+
+        fi
+
+    )
+
+    local rc=$?
+
+    sw_log_debug \
+        "Modules" \
+        "Finished $(basename "${module}") (rc=${rc})"
+
+    return "${rc}"
+
+}
+
+sw_module_trigger() {
+
+    local module="$1"
+    local file
+
+    file="${MODULES_DIR}/${module}.sh"
+
+    [[ -f "${file}" ]] || return 1
+
+    sw_log_info "Module triggered" "Loading $(basename "${module}")"
+
+    (
+
+        source "${file}"
+
+        if ! declare -F sw_module_run >/dev/null; then
+
+            sw_log_warning \
+                "Modules" \
+                "Module $(basename "${module}") does not define sw_module_run() [triggered by "${MODULE_NAME}"]"
+
+            exit 1
+
+        fi
+
+        sw_module_global_config_load "${MODULE_NAME}"
+
+        rm - f "${STATE_DIR}/.${module}.last_run"
+
+        if sw_module_should_run "${MODULE_NAME}" "${MODULE_INTERVAL}"; then
+
+            echo "${module} (${MODULE_NAME}) forzado" >>/home/daniel/scripts/syswatch/secuencia_modulos.txt
+
+            echo "Ejecutando ${module}. Forzado"
+
+            sw_module_run
+
+            sw_module_touch "${MODULE_NAME}"
+
+            MODULE_INTERVAL_NORMAL="${MODULE_INTERVAL_NORMAL:-$MODULE_INTERVAL}"
+
+            sw_module_global_config_save "${MODULE_NAME}" "${MODULE_INTERVAL}" "${MODULE_INTERVAL_NORMAL}" "${MODULE_INTERVAL_ALT}" "${MODULE_ORDER}" "${MODULE_REMOTE}"
+
         else
             sw_log_info \
                 "${MODULE_NAME}" \
@@ -115,7 +181,7 @@ sw_run_modules() {
     local module
     local count=0
 
-    echo "$(date +"%d/%m/%Y %H:%M:%S")" >> /home/daniel/scripts/syswatch/secuencia_modulos.txt
+    echo "$(date +"%d/%m/%Y %H:%M:%S")" >>/home/daniel/scripts/syswatch/secuencia_modulos.txt
 
     while IFS= read -r module; do
 

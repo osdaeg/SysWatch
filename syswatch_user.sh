@@ -41,6 +41,8 @@ sw_check_config
 
 main() {
 
+    sw_wait_unlocked
+
     sw_mkdir \
         "$STATE_DIR" \
         "$LOG_DIR" \
@@ -69,49 +71,11 @@ main() {
 
     sw_timer_update_all
 
-    sw_state_clear
-
-    printf '%s\n' "${SW_TIMER_DONE[@]}" >> ~/scripts/syswatch/timer.txt
-
-
-    for entry in "${SW_TIMER_DONE[@]}"; do
-
-        modulo="${entry%%:*}"
-        action="${entry#*:}"
-
-        echo "$(date) ENTRY=[$entry] MODULO=[$modulo] ACTION=[$action]" \
-        >> ~/scripts/syswatch/timer.txt
-
-
-        sw_state_use "${modulo}"
-
-        case "${action}" in
-
-            deletestate)
-                sw_state_delete
-                ;;
-            statusok)
-                sw_status_update_for "${modulo}" "${SW_STATUS_OK}"
-                ;;
-            statuswarning)
-                sw_status_update_for "${modulo}" "${SW_STATUS_WARNING}"
-                ;;
-            statuscritical)
-                sw_status_update_for "${modulo}" "${SW_STATUS_CRITICAL}"
-                ;;
-            statusinfo)
-                sw_status_update_for "${modulo}" "${SW_STATUS_INFO}"
-                ;;   
-                            *)
-                echo "$(date) CASE NO MATCH: [$action]" \
-                    >> ~/scripts/syswatch/timer.txt
-                ;;
-        
-        esac
-
-    done
+    sw_timer_process
 
     sw_import
+
+    sw_state_purge
 
     sw_log_info "${LAUNCHER_NAME}" "Updating HTML"
 

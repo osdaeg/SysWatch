@@ -14,9 +14,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="CPU"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="CPU usage monitoring"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-30}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-10}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -163,8 +166,6 @@ cpu_update_state() {
     sw_state_set "load15.label" "$(sw_translate "Load: 15 minutes")"
     sw_state_set "load15.order" "40"
 
-    sw_message_send "weather" "prueba" "true" "cpu"
-
 }
 
 cpu_report() {
@@ -199,6 +200,8 @@ sw_module_run() {
         "cpu" \
         "usage" \
         "${CPU_USAGE}"
+
+    #sw_message_send_to_intercom "Uso de CPU: ${CPU_USAGE}"    "HOGAR-PC-Linux"
 
     sw_state_save
 

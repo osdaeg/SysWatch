@@ -30,7 +30,7 @@ HTML_CURRENT_MODULE=""
 
 sw_html_begin() {
 
-cat <<EOF
+    cat <<EOF
 <!DOCTYPE html>
 
 <html lang="en">
@@ -59,7 +59,7 @@ EOF
 
 sw_html_end() {
 
-cat <<EOF
+    cat <<EOF
 
 </div>
 
@@ -85,7 +85,7 @@ sw_html_render_header() {
     status="$(sw_state_get status)"
     status="${status,,}"
 
-cat <<EOF
+    cat <<EOF
 
 <div class="card status-${status}">
 
@@ -130,10 +130,10 @@ sw_html_format_value() {
 
     case "${render}" in
 
-        bytes)
+    bytes)
 
-            [[ -n "${value}" ]] && value="$(sw_human_bytes "${value}")"
-            ;;
+        [[ -n "${value}" ]] && value="$(sw_human_bytes "${value}")"
+        ;;
 
     esac
 
@@ -166,24 +166,22 @@ sw_html_widget_text() {
     [[ -n "${label}" ]] || label="${key}"
 
     case "${align}" in
-        left|center|right)
-            ;;
-        *)
-            align="right"
-            ;;
+    left | center | right) ;;
+    *)
+        align="right"
+        ;;
     esac
 
     case "${color}" in
-        white|black|yellow|red|green|orange|pink)
-            ;;
-        *)
-            color="white"
-            ;;
+    white | black | yellow | red | green | orange | pink) ;;
+    *)
+        color="white"
+        ;;
     esac
 
     value="$(sw_html_format_value "${key}" "${value}")"
 
-cat <<EOF
+    cat <<EOF
 
 <div class="field">
 
@@ -227,11 +225,11 @@ sw_html_widget_gauge() {
     local critical_int="${critical%%.*}"
     local warning_int="${warning%%.*}"
 
-    if (( value_int >= critical_int )); then
+    if ((value_int >= critical_int)); then
 
         color="var(--critical-color)"
 
-    elif (( value_int >= warning_int )); then
+    elif ((value_int >= warning_int)); then
 
         color="var(--warning-color)"
 
@@ -239,7 +237,7 @@ sw_html_widget_gauge() {
 
     display_value="$(sw_html_format_value "${key}" "${value}")"
 
-cat <<EOF
+    cat <<EOF
 
 <div class="gauge-widget">
 
@@ -311,11 +309,10 @@ sw_html_widget_line() {
 
     local v
 
-    for v in "${values[@]}"
-    do
+    for v in "${values[@]}"; do
 
-        (( v < history_min )) && history_min="$v"
-        (( v > history_max )) && history_max="$v"
+        ((v < history_min)) && history_min="$v"
+        ((v > history_max)) && history_max="$v"
 
     done
 
@@ -324,39 +321,38 @@ sw_html_widget_line() {
 
     case "${scale}" in
 
-        fixed)
+    fixed)
 
-            min="$(sw_state_get "${key}.min")"
-            max="$(sw_state_get "${key}.max")"
-            ;;
+        min="$(sw_state_get "${key}.min")"
+        max="$(sw_state_get "${key}.max")"
+        ;;
 
-        zero)
+    zero)
 
-            min=0
-            max="${history_max}"
-            ;;
+        min=0
+        max="${history_max}"
+        ;;
 
-        dynamic|*)
+    dynamic | *)
 
-            min="${history_min}"
-            max="${history_max}"
-            ;;
+        min="${history_min}"
+        max="${history_max}"
+        ;;
 
     esac
 
-    (( max == min )) && max=$((min + 1))
-    
+    ((max == min)) && max=$((min + 1))
+
     local v
 
-    for v in "${values[@]}"
-    do
+    for v in "${values[@]}"; do
 
-        (( v < min )) && min="$v"
-        (( v > max )) && max="$v"
+        ((v < min)) && min="$v"
+        ((v > max)) && max="$v"
 
     done
 
-    (( max == min )) && max=$((min + 1))
+    ((max == min)) && max=$((min + 1))
 
     local width=300
     local height=70
@@ -373,19 +369,18 @@ sw_html_widget_line() {
     local x
     local y
 
-    for (( i=0; i<count; i++ ))
-    do
+    for ((i = 0; i < count; i++)); do
 
-        if (( count > 1 )); then
-            x=$(( left + i * ((width-left-right)/(count-1)) ))
+        if ((count > 1)); then
+            x=$((left + i * ((width - left - right) / (count - 1))))
         else
-            x=$(( left + (width-left-right)/2 ))
-        fi    
+            x=$((left + (width - left - right) / 2))
+        fi
 
-        if (( max == min )); then
-            y=$(( height / 2 ))
+        if ((max == min)); then
+            y=$((height / 2))
         else
-            y=$(( height - ((values[i]-min) * height / (max-min)) ))
+            y=$((height - ((values[i] - min) * height / (max - min))))
         fi
 
         points+="${x},${y} "
@@ -396,7 +391,7 @@ sw_html_widget_line() {
     local last_x
     local last_y
 
-    first_y=$(( height - ((values[0]-min) * height / (max-min)) ))
+    first_y=$((height - ((values[0] - min) * height / (max - min))))
 
     last_x="$x"
     last_y="$y"
@@ -410,35 +405,35 @@ sw_html_widget_line() {
 
     case "$(sw_state_get status)" in
 
-        OK)
+    OK)
 
-            chart_color="var(--ok-color)"
-            chart_fill="var(--ok-fill)"
-            ;;
+        chart_color="var(--ok-color)"
+        chart_fill="var(--ok-fill)"
+        ;;
 
-        WARNING)
+    WARNING)
 
-            chart_color="var(--warning-color)"
-            chart_fill="var(--warning-fill)"
-            ;;
+        chart_color="var(--warning-color)"
+        chart_fill="var(--warning-fill)"
+        ;;
 
-        CRITICAL)
+    CRITICAL)
 
-            chart_color="var(--critical-color)"
-            chart_fill="var(--critical-fill)"
-            ;;
+        chart_color="var(--critical-color)"
+        chart_fill="var(--critical-fill)"
+        ;;
 
-        INFO)
+    INFO)
 
-            chart_color="var(--info-color)"
-            chart_fill="var(--info-fill)"
-            ;;    
+        chart_color="var(--info-color)"
+        chart_fill="var(--info-fill)"
+        ;;
 
-        *)
+    *)
 
-            chart_color="var(--ok-color)"
-            chart_fill="var(--ok-fill)"
-            ;;
+        chart_color="var(--ok-color)"
+        chart_fill="var(--ok-fill)"
+        ;;
 
     esac
 
@@ -450,7 +445,7 @@ sw_html_widget_line() {
         display="$(sw_html_format_value "${key}" "${value}")${unit:+ ${unit}}"
     fi
 
-cat <<EOF
+    cat <<EOF
 
 <div class="line-widget">
 
@@ -546,26 +541,25 @@ sw_html_render_widget() {
 
     case "${widget}" in
 
-        gauge)
+    gauge)
 
-            sw_html_widget_gauge "$@"
-            ;;
+        sw_html_widget_gauge "$@"
+        ;;
 
-        image)
+    image)
 
-            sw_html_widget_image "$@"
-            ;;
-    
+        sw_html_widget_image "$@"
+        ;;
 
-        line)
+    line)
 
-            sw_html_widget_line "$@"
-            ;;
+        sw_html_widget_line "$@"
+        ;;
 
-        *)
+    *)
 
-            sw_html_widget_text "$@"
-            ;;
+        sw_html_widget_text "$@"
+        ;;
 
     esac
 
@@ -583,7 +577,7 @@ sw_html_widget_image() {
 
     if [[ -z "${value}" ]]; then
 
-cat <<EOF
+        cat <<EOF
 
 <div class="image-widget">
 
@@ -599,7 +593,7 @@ EOF
 
     fi
 
-cat <<EOF
+    cat <<EOF
 
 <div class="image-widget">
 
@@ -613,7 +607,7 @@ EOF
 
     [[ -n "${label}" ]] && printf '<div class="image-label">%s</div>\n' "${label}"
 
-cat <<EOF
+    cat <<EOF
 
 </div>
 
@@ -631,8 +625,7 @@ sw_html_render_fields() {
     local value
     local order
 
-    while IFS='=' read -r key value
-    do
+    while IFS='=' read -r key value; do
 
         [[ -z "${key}" ]] && continue
 
@@ -642,23 +635,23 @@ sw_html_render_fields() {
 
         case "${key}" in
 
-            _internal.*)
+        _internal.*)
 
-                continue
-                ;;
+            continue
+            ;;
 
-            module.*|*.label|*.display|*.widget|*.unit|*.warning|*.critical|*.order|*.hidden|*.scale|*.min|*.max|*.history|*.render|*.align|*.color|*.from|*.persist)
+        module.* | *.label | *.display | *.widget | *.unit | *.warning | *.critical | *.order | *.hidden | *.scale | *.min | *.max | *.history | *.render | *.align | *.color | *.from | *.persist)
 
-                continue
-                ;;
+            continue
+            ;;
 
-            module_version|status|status_since|timestamp)
+        module_version | status | status_since | timestamp)
 
-                continue
-                ;;
+            continue
+            ;;
 
         esac
-        
+
         #
         # Hidden field
         #
@@ -673,20 +666,19 @@ sw_html_render_fields() {
 
         fields+=("${order}:${key}")
 
-    done < "${state_file}"
+    done <"${state_file}"
 
     # printf with a %s directive still emits one line even with zero
     # arguments (it doesn't just print nothing), so without this guard
     # an empty ${fields[@]} would feed the loop below one blank line and
     # it would render a bogus empty-key field.
-    if (( ${#fields[@]} == 0 )); then
+    if ((${#fields[@]} == 0)); then
 
         return
 
     fi
 
-    while IFS=: read -r order key
-    do
+    while IFS=: read -r order key; do
 
         value="$(sw_state_get "${key}")"
 
@@ -716,14 +708,13 @@ sw_html_render_module() {
     sw_state_use "${HTML_CURRENT_MODULE}"
     sw_state_load
 
-    
     sw_html_render_header \
         "$(sw_state_get module.label)" \
         "$(sw_state_get module.icon)"
 
     sw_html_render_fields "${state_file}"
 
-cat <<EOF
+    cat <<EOF
 
 </div>
 
@@ -754,14 +745,14 @@ sw_html_module_sort_key() {
 
     case "${status}" in
 
-        CRITICAL) priority=1 ;;
-        WARNING)  priority=2 ;;
-        UNKNOWN)  priority=3 ;;
-        INFO)     priority=4 ;;
-        OK)       priority=5 ;;
-        PASSED)   priority=6 ;;
-        DISABLED) priority=7 ;;
-        *)        priority=9 ;;
+    CRITICAL) priority=1 ;;
+    WARNING) priority=2 ;;
+    UNKNOWN) priority=3 ;;
+    INFO) priority=4 ;;
+    OK) priority=5 ;;
+    PASSED) priority=6 ;;
+    DISABLED) priority=7 ;;
+    *) priority=9 ;;
 
     esac
 
@@ -776,8 +767,12 @@ sw_html_sorted_states() {
 
     local state
 
-    for state in "${STATE_DIR}"/*.state
-    do
+    for state in \
+        "${STATE_DIR}"/*.state \
+        "${STATE_DIR}"/.[!.]*.state \
+        "${STATE_DIR}"/..?*.state; do
+
+        [[ -f "${state}" ]] || continue
 
         sw_html_module_sort_key "${state}"
 
@@ -793,8 +788,7 @@ sw_html_generate() {
 
         local state
 
-        while IFS='|' read -r _ _ state
-        do
+        while IFS='|' read -r _ _ state; do
 
             sw_html_render_module "${state}"
 
@@ -802,6 +796,6 @@ sw_html_generate() {
 
         sw_html_end
 
-    } > "${HTML_FILE}"
+    } >"${HTML_FILE}"
 
 }

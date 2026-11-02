@@ -23,9 +23,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="SmnWeather"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="SMN current weather conditions (unofficial API)"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-9}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -80,48 +83,48 @@ smn_weather_icon() {
 
     case "${code}" in
 
-        3)
-            [[ "${is_day}" == "true" ]] && printf 'lucide/sun\n' || printf 'lucide/moon\n'
-            ;;
+    3)
+        [[ "${is_day}" == "true" ]] && printf 'lucide/sun\n' || printf 'lucide/moon\n'
+        ;;
 
-        13|19|25)
-            [[ "${is_day}" == "true" ]] && printf 'lucide/cloud-sun\n' || printf 'lucide/cloud-moon\n'
-            ;;
+    13 | 19 | 25)
+        [[ "${is_day}" == "true" ]] && printf 'lucide/cloud-sun\n' || printf 'lucide/cloud-moon\n'
+        ;;
 
-        37|43)
-            printf 'lucide/cloudy\n'
-            ;;
+    37 | 43)
+        printf 'lucide/cloudy\n'
+        ;;
 
-        61|67)
-            printf 'lucide/cloud-fog\n'
-            ;;
+    61 | 67)
+        printf 'lucide/cloud-fog\n'
+        ;;
 
-        71)
-            printf 'lucide/cloud-drizzle\n'
-            ;;
+    71)
+        printf 'lucide/cloud-drizzle\n'
+        ;;
 
-        72|73)
-            printf 'lucide/cloud-rain\n'
-            WEATHER_RADAR=1
-            ;;
+    72 | 73)
+        printf 'lucide/cloud-rain\n'
+        WEATHER_RADAR=1
+        ;;
 
-        76|81|89)
-            printf 'lucide/cloud-lightning\n'
-            WEATHER_RADAR=1
-            ;;
+    76 | 81 | 89)
+        printf 'lucide/cloud-lightning\n'
+        WEATHER_RADAR=1
+        ;;
 
-        77)
-            printf 'lucide/cloud-hail\n'
-            ;;
+    77)
+        printf 'lucide/cloud-hail\n'
+        ;;
 
-        78|79|85|96)
-            printf 'lucide/cloud-snow\n'
-            WEATHER_RADAR=1
-            ;;
+    78 | 79 | 85 | 96)
+        printf 'lucide/cloud-snow\n'
+        WEATHER_RADAR=1
+        ;;
 
-        *)
-            printf 'lucide/cloud\n'
-            ;;
+    *)
+        printf 'lucide/cloud\n'
+        ;;
 
     esac
 
@@ -145,9 +148,9 @@ smn_weather_collect() {
     mtime="$(stat -c %Y "${SMN_ACTUAL_FILE}" 2>/dev/null)"
 
     local age_minutes
-    age_minutes=$(( ( $(date +%s) - mtime ) / 60 ))
+    age_minutes=$((($(date +%s) - mtime) / 60))
 
-    if (( age_minutes > SMN_MAX_AGE_MINUTES )); then
+    if ((age_minutes > SMN_MAX_AGE_MINUTES)); then
 
         sw_log_warning \
             "${MODULE_NAME}" \
@@ -160,7 +163,7 @@ smn_weather_collect() {
     local json
     json="$(cat "${SMN_ACTUAL_FILE}" 2>/dev/null)"
 
-    if [[ -z "${json}" ]] || ! jq empty >/dev/null 2>&1 <<< "${json}"; then
+    if [[ -z "${json}" ]] || ! jq empty >/dev/null 2>&1 <<<"${json}"; then
 
         sw_log_warning \
             "${MODULE_NAME}" \
@@ -170,17 +173,17 @@ smn_weather_collect() {
 
     fi
 
-    SMN_DATE="$(jq -r '.date // ""' <<< "${json}")"
-    SMN_TEMP="$(jq -r '.temperature // empty' <<< "${json}")"
-    SMN_FEELS_LIKE="$(jq -r '.feels_like // empty' <<< "${json}")"
-    SMN_HUMIDITY="$(jq -r '.humidity // empty' <<< "${json}")"
-    SMN_PRESSURE="$(jq -r '.pressure // empty' <<< "${json}")"
-    SMN_VISIBILITY="$(jq -r '.visibility // empty' <<< "${json}")"
-    SMN_WIND_DIR="$(jq -r '.wind.direction // "N/A"' <<< "${json}")"
-    SMN_WIND_SPEED="$(jq -r '.wind.speed // empty' <<< "${json}")"
-    SMN_WEATHER_ID="$(jq -r '.weather.id // 0' <<< "${json}")"
-    SMN_WEATHER_DESC="$(jq -r '.weather.description // "N/A"' <<< "${json}")"
-    SMN_DEPARTMENT="$(jq -r '.location.department // .location.name // "N/A"' <<< "${json}")"
+    SMN_DATE="$(jq -r '.date // ""' <<<"${json}")"
+    SMN_TEMP="$(jq -r '.temperature // empty' <<<"${json}")"
+    SMN_FEELS_LIKE="$(jq -r '.feels_like // empty' <<<"${json}")"
+    SMN_HUMIDITY="$(jq -r '.humidity // empty' <<<"${json}")"
+    SMN_PRESSURE="$(jq -r '.pressure // empty' <<<"${json}")"
+    SMN_VISIBILITY="$(jq -r '.visibility // empty' <<<"${json}")"
+    SMN_WIND_DIR="$(jq -r '.wind.direction // "N/A"' <<<"${json}")"
+    SMN_WIND_SPEED="$(jq -r '.wind.speed // empty' <<<"${json}")"
+    SMN_WEATHER_ID="$(jq -r '.weather.id // 0' <<<"${json}")"
+    SMN_WEATHER_DESC="$(jq -r '.weather.description // "N/A"' <<<"${json}")"
+    SMN_DEPARTMENT="$(jq -r '.location.department // .location.name // "N/A"' <<<"${json}")"
 
     if [[ -z "${SMN_TEMP}" ]]; then
 
@@ -195,7 +198,7 @@ smn_weather_collect() {
     local hour
     hour="$(date -d "${SMN_DATE}" '+%H' 2>/dev/null)"
 
-    if [[ -n "${hour}" ]] && (( 10#${hour} >= 7 && 10#${hour} < 20 )); then
+    if [[ -n "${hour}" ]] && ((10#${hour} >= 7 && 10#${hour} < 20)); then
 
         SMN_IS_DAY="true"
 
@@ -214,32 +217,32 @@ smn_weather_analyze() {
 
     local temp_int="${SMN_TEMP%%.*}"
 
-    if (( temp_int >= SMN_TEMP_CRITICAL_HIGH )); then
+    if ((temp_int >= SMN_TEMP_CRITICAL_HIGH)); then
 
         SMN_STATUS="${SW_STATUS_CRITICAL}"
         SMN_REASON="Temperatura muy alta (${SMN_TEMP}°C)"
 
-    elif (( temp_int <= SMN_TEMP_CRITICAL_LOW )); then
+    elif ((temp_int <= SMN_TEMP_CRITICAL_LOW)); then
 
         SMN_STATUS="${SW_STATUS_CRITICAL}"
         SMN_REASON="Temperatura muy baja (${SMN_TEMP}°C)"
 
-    elif [[ -n "${SMN_WIND_SPEED}" ]] && (( ${SMN_WIND_SPEED%%.*} >= SMN_WIND_CRITICAL_KMH )); then
+    elif [[ -n "${SMN_WIND_SPEED}" ]] && ((${SMN_WIND_SPEED%%.*} >= SMN_WIND_CRITICAL_KMH)); then
 
         SMN_STATUS="${SW_STATUS_CRITICAL}"
         SMN_REASON="Viento muy fuerte (${SMN_WIND_SPEED} km/h)"
 
-    elif (( temp_int >= SMN_TEMP_WARNING_HIGH )); then
+    elif ((temp_int >= SMN_TEMP_WARNING_HIGH)); then
 
         SMN_STATUS="${SW_STATUS_WARNING}"
         SMN_REASON="Temperatura alta (${SMN_TEMP}°C)"
 
-    elif (( temp_int <= SMN_TEMP_WARNING_LOW )); then
+    elif ((temp_int <= SMN_TEMP_WARNING_LOW)); then
 
         SMN_STATUS="${SW_STATUS_WARNING}"
         SMN_REASON="Temperatura baja (${SMN_TEMP}°C)"
 
-    elif [[ -n "${SMN_WIND_SPEED}" ]] && (( ${SMN_WIND_SPEED%%.*} >= SMN_WIND_WARNING_KMH )); then
+    elif [[ -n "${SMN_WIND_SPEED}" ]] && ((${SMN_WIND_SPEED%%.*} >= SMN_WIND_WARNING_KMH)); then
 
         SMN_STATUS="${SW_STATUS_WARNING}"
         SMN_REASON="Viento fuerte (${SMN_WIND_SPEED} km/h)"
@@ -326,7 +329,7 @@ sw_module_run() {
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
     fi
-    
+
     sw_state_load
 
     smn_weather_collect || return 1
@@ -342,7 +345,8 @@ sw_module_run() {
     smn_weather_report
 
     sw_message_send "radar" "$WEATHER_RADAR" "true" "weather"
-    
+    sw_message_send "smn_radar" "$WEATHER_RADAR" "true" "weather"
+
     sw_csv_append \
         "weather" \
         "radar" \

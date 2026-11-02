@@ -27,6 +27,8 @@ readonly MODULE_NAME="QbittorrentInfo"
 readonly MODULE_DESCRIPTION="qBittorrent connection status monitoring"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-120}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-70}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -62,6 +64,10 @@ QBITTORRENT_UPNP=false
 QBITTORRENT_RANDOM_PORT=false
 
 QBITTORRENT_STATUS="${SW_STATUS_OK}"
+
+QBITTORRENT_ID=""
+QBITTORRENT_NAMESPACE=""
+QBITTORRENT_NETWORK_ID=""
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -103,6 +109,98 @@ qbittorrent_collect() {
 
     sw_require_command curl || return 127
     sw_require_command jq || return 127
+
+    # -------------------------------------------------------------------------
+    # Get container ID and network namespace
+    # -------------------------------------------------------------------------
+
+    QBITTORRENT_ID=""
+    QBITTORRENT_NAMESPACE=""
+
+    case "${QBITTORRENT_MODE}" in
+
+    host)
+        # No Docker checks required.
+        ;;
+
+    docker)
+
+        sw_require_command docker || return 127
+
+        QBITTORRENT_ID="$(
+            docker inspect \
+                --format '{{.Id}}' \
+                "${QBITTORRENT_CONTAINER_NAME}" 2>/dev/null
+        )" || {
+            sw_log_warning \
+                "${MODULE_NAME}" \
+                "Unable to get qBittorrent container ID"
+
+            return 1
+        }
+
+        if [[ -z "${QBITTORRENT_ID}" ]]; then
+
+            sw_log_warning \
+                "${MODULE_NAME}" \
+                "qBittorrent container ID is empty"
+
+            return 1
+
+        fi
+
+        local network_mode
+
+        network_mode="$(
+            docker inspect \
+                --format '{{.HostConfig.NetworkMode}}' \
+                "${QBITTORRENT_CONTAINER_NAME}" 2>/dev/null
+        )" || return 1
+
+        QBITTORRENT_NETWORK_ID=""
+
+        if [[ "${network_mode}" == container:* ]]; then
+            QBITTORRENT_NETWORK_ID="${network_mode#container:}"
+        fi
+
+        QBITTORRENT_NAMESPACE="$(
+            docker exec "${QBITTORRENT_CONTAINER_NAME}" \
+                readlink /proc/1/ns/net 2>/dev/null
+        )" || {
+            QBITTORRENT_ID=""
+            QBITTORRENT_NAMESPACE=""
+
+            sw_log_warning \
+                "${MODULE_NAME}" \
+                "Unable to get qBittorrent network namespace"
+
+            return 1
+        }
+
+        if [[ -z "${QBITTORRENT_NAMESPACE}" ]]; then
+
+            QBITTORRENT_ID=""
+
+            sw_log_warning \
+                "${MODULE_NAME}" \
+                "qBittorrent network namespace is empty"
+
+            return 1
+
+        fi
+
+        ;;
+
+    *)
+
+        sw_log_warning \
+            "${MODULE_NAME}" \
+            "Invalid QBITTORRENT_MODE: ${QBITTORRENT_MODE}"
+
+        return 1
+        ;;
+
+    esac
 
     local cookie_jar
     cookie_jar="$(mktemp)"
@@ -215,6 +313,8 @@ qbittorrent_update_state() {
     local port
     local interface
     local address
+    local id
+    local namespace
 
     sw_message_load "ip"
     address="$MESSAGE_FROM_MODULE"
@@ -222,6 +322,10 @@ qbittorrent_update_state() {
     port="$MESSAGE_FROM_MODULE"
     sw_message_load "interface"
     interface="$MESSAGE_FROM_MODULE"
+    sw_message_load "id"
+    id="$MESSAGE_FROM_MODULE"
+    sw_message_load "namespace"
+    namespace="$MESSAGE_FROM_MODULE"
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
@@ -273,6 +377,38 @@ qbittorrent_update_state() {
         fi
     else
         sw_state_set "port.color" "white"
+    fi
+
+    # -------------------------------------------------------------------------
+    # Network namespace
+    # -------------------------------------------------------------------------
+
+    sw_state_set "network_namespace.label" "$(sw_translate "Gluetun network")"
+    sw_state_set "network_namespace.order" "55"
+
+    if [[ "${QBITTORRENT_MODE}" == "host" ]]; then
+
+        sw_state_set "network_namespace" "$(sw_translate "Not checked")"
+        sw_state_set "network_namespace.color" "white"
+        sw_state_set "network_namespace.hidden" "true"
+
+    elif [[ -z "$id" || -z "$namespace" ]]; then
+
+        sw_state_set "network_namespace" "$(sw_translate "Unknown")"
+        sw_state_set "network_namespace.color" "white"
+
+    elif [[ "$QBITTORRENT_NETWORK_ID" == "$id" &&
+        "$QBITTORRENT_NAMESPACE" == "$namespace" ]]; then
+
+        sw_state_set "network_namespace" "$(sw_translate "Shared")"
+        sw_state_set "network_namespace.color" "green"
+
+    else
+
+        sw_state_set "network_namespace" "$(sw_translate "Mismatch")"
+        sw_state_set "network_namespace.color" "red"
+        QBITTORRENT_STATUS="$SW_STATUS_CRITICAL"
+
     fi
 
     sw_state_set "upnp" "$(sw_translate "${QBITTORRENT_UPNP}")"
@@ -331,9 +467,9 @@ sw_module_run() {
 
     qbittorrent_analyze
 
-    sw_status_update "${QBITTORRENT_STATUS}" || return 1
-
     qbittorrent_update_state
+
+    sw_status_update "${QBITTORRENT_STATUS}" || return 1
 
     sw_state_save
 

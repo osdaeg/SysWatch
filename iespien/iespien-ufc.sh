@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 # SysWatch
 #
-# module futbol
+# module UFC
 #
 # Requires IESPIEN (https://github.com/osdaeg/iespien)
 #
@@ -16,34 +16,37 @@
 # Module metadata
 # -----------------------------------------------------------------------------
 
-readonly MODULE_NAME="IESPIEN-Fútbol"
-readonly MODULE_DESCRIPTION="futbol events"
+readonly MODULE_NAME="IESPIEN-UFC"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
+readonly MODULE_DESCRIPTION="UFC events"
 readonly MODULE_VERSION="0.1.0"
 
-MODULE_INTERVAL=${MODULE_INTERVAL:-300}
-MODULE_ORDER=${MODULE_ORDER:-10}
+MODULE_INTERVAL=${MODULE_INTERVAL:-21400}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
+MODULE_ORDER=${MODULE_ORDER:-9999}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
 
-readonly FUTBOL_WARNING="${FUTBOL_WARNING:-80}"
-readonly FUTBOL_CRITICAL="${FUTBOL_CRITICAL:-95}"
+readonly UFC_WARNING="${UFC_WARNING:-80}"
+readonly UFC_CRITICAL="${UFC_CRITICAL:-95}"
 
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
 
-FUTBOL_VALUE=0
-FUTBOL_STATUS="${SW_STATUS_UNKNOWN}"
-FUTBOL_EVENTS=()
+UFC_VALUE=0
+UFC_STATUS="${SW_STATUS_UNKNOWN}"
+UFC_EVENTS=()
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
 
-FUTBOL_collect() {
+UFC_collect() {
 
     local anio mes dia
     local file cached item
@@ -53,13 +56,13 @@ FUTBOL_collect() {
     mes=$(date +%m)
     dia=$(date +%d)
 
-    file="/home/daniel/docker/util/iespien/cache/fútbol_${anio}-${mes}-${dia}.json"
+    file="/home/daniel/docker/util/iespien/cache/ufc_${anio}-${mes}-${dia}.json"
 
     [[ -f "$file" ]] || return 1
 
     sw_cache_copy "$file"
 
-    cached=$(sw_cache_file "fútbol_${anio}-${mes}-${dia}.json")
+    cached=$(sw_cache_file "ufc_${anio}-${mes}-${dia}.json")
 
     [[ -f "$cached" ]] || return 1
 
@@ -72,7 +75,7 @@ FUTBOL_collect() {
         escenario=$(jq -r '.escenario' <<<"$item")
         canales=$(jq -r '.canales | join(", ")' <<<"$item")
 
-        FUTBOL_EVENTS+=(
+        UFC_EVENTS+=(
             "${competicion}|${contrincantes}|${fecha}|${hora}|${escenario}|${canales}"
         )
 
@@ -87,27 +90,27 @@ FUTBOL_collect() {
     ' "$cached"
     )
 
-    #printf '%s\n' "${FUTBOL_EVENTS[@]}"
+    #printf '%s\n' "${UFC_EVENTS[@]}"
 
 }
 
-FUTBOL_analyze() {
+UFC_analyze() {
 
-    FUTBOL_STATUS="${SW_STATUS_OK}"
+    UFC_STATUS="${SW_STATUS_OK}"
 
-    if ((FUTBOL_VALUE >= FUTBOL_CRITICAL)); then
+    if ((UFC_VALUE >= UFC_CRITICAL)); then
 
-        FUTBOL_STATUS="${SW_STATUS_CRITICAL}"
+        UFC_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif ((FUTBOL_VALUE >= FUTBOL_WARNING)); then
+    elif ((UFC_VALUE >= UFC_WARNING)); then
 
-        FUTBOL_STATUS="${SW_STATUS_WARNING}"
+        UFC_STATUS="${SW_STATUS_WARNING}"
 
     fi
 
 }
 
-FUTBOL_update_state() {
+UFC_update_state() {
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
@@ -115,8 +118,8 @@ FUTBOL_update_state() {
     # Module metadata (consumed by lib/html.sh)
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "$(sw_translate "Football")"
-    sw_state_set "module.icon" "sports/futbol"
+    sw_state_set "module.label" "$(sw_translate "UFC")"
+    sw_state_set "module.icon" "sports/ufc"
     sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
@@ -127,27 +130,28 @@ FUTBOL_update_state() {
 
     local competicion contrincantes fecha hora escenario canales
     local row=1
-    local competition=0
+    local competition=1
     local order=10
     local previous="previo"
     local event
 
-    for data in "${FUTBOL_EVENTS[@]}"; do
+    for data in "${UFC_EVENTS[@]}"; do
 
         IFS='|' read -r competicion contrincantes fecha hora escenario canales <<<"$data"
 
         event=""
 
         [[ -n "$contrincantes" ]] && event="${contrincantes}"
-        [[ -n "$fecha" ]] && event+="${event:+ - }${fecha}"
-        [[ -n "$hora" ]] && event+="${event:+ - }${hora}"
-        [[ -n "$escenario" ]] && event+="${event:+ - }${escenario}"
-        [[ -n "$canales" ]] && event+="${event:+ - }${canales}"
+        [[ -n "$fecha" ]] && event+=" - ${fecha}"
+        [[ -n "$hora" ]] && event+=" - ${hora}"
+        [[ -n "$escenario" ]] && event+=" - ${escenario}"
+        [[ -n "$canales" ]] && event+=" - ${canales}"
 
-        if [[ "$competicion" != "$previous" ]]; then
-
-            ((competition++))
-
+        if [ "$competicion" == "$previous" ]; then
+            sw_state_set "evento${row}-${competition}" "$event"
+            sw_state_set "evento${row}-${competition}.label" "$row"
+            sw_state_set "evento${row}-${competition}.order" "$order"
+        else
             sw_state_set "competicion${competition}" "$competicion"
             sw_state_set "competicion${competition}.label" "$(sw_translate "Competition")"
             sw_state_set "competicion${competition}.order" "$order"
@@ -156,40 +160,30 @@ FUTBOL_update_state() {
             row=1
             previous="$competicion"
             ((order++))
-
-            # La competición nueva se registra antes de escribir sus eventos.
             sw_state_set "evento${row}-${competition}" "$event"
             sw_state_set "evento${row}-${competition}.label" "$row"
             sw_state_set "evento${row}-${competition}.order" "$order"
-
-        else
-
-            sw_state_set "evento${row}-${competition}" "$event"
-            sw_state_set "evento${row}-${competition}.label" "$row"
-            sw_state_set "evento${row}-${competition}.order" "$order"
-
+            ((competition++))
         fi
 
-        echo "$competicion $competition $event $row"
-
-        ((row++))
         ((order++))
+        ((row++))
 
     done
 
 }
 
-FUTBOL_report() {
+UFC_report() {
 
     sw_log_info \
         "${MODULE_NAME}" \
-        "futbol value: ${FUTBOL_VALUE} (${FUTBOL_STATUS})"
+        "UFC value: ${UFC_VALUE} (${UFC_STATUS})"
 
 }
 
 sw_module_run() {
 
-    sw_state_use "futbol"
+    sw_state_use "ufc"
 
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
@@ -199,23 +193,23 @@ sw_module_run() {
 
     sw_state_clear
 
-    FUTBOL_collect
+    UFC_collect
 
-    FUTBOL_analyze
+    UFC_analyze
 
-    sw_status_update "${FUTBOL_STATUS}" || return 1
+    sw_status_update "${UFC_STATUS}" || return 1
 
-    FUTBOL_update_state
+    UFC_update_state
 
     sw_state_save
 
-    FUTBOL_report
+    UFC_report
 
     # Optional: append to CSV history for sparkline widgets.
     #
     # sw_csv_append \
-    #     "futbol" \
+    #     "UFC" \
     #     "value" \
-    #     "${FUTBOL_VALUE}"
+    #     "${UFC_VALUE}"
 
 }

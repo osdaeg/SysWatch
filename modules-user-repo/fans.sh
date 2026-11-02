@@ -16,10 +16,13 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Fans"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Hardware fan speeds"
 readonly MODULE_VERSION="0.1.0"
 
 MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-1160}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -133,6 +136,7 @@ fans_update_state() {
     local fan_name
     local fan_value
     local fan_alarm
+    local fan_min fan_max
 
     for fan in "${FANS_DATA[@]}"; do
 
@@ -157,6 +161,30 @@ fans_update_state() {
             sw_state_set \
                 "fan.${fan_name}.widget" \
                 "line"
+
+            fan_min="$(sw_state_get "fan_min.${fan_name}")"
+            fan_max="$(sw_state_get "fan_max.${fan_name}")"
+
+            fan_min=${fan_min:-$fan_value}
+            fan_max=${fan_max:-$fan_value}
+
+            if ((fan_value <= fan_min)); then
+                fan_min="$fan_value"
+
+                sw_state_set "fan_min.${fan_name}" "$fan_min"
+                sw_state_set "fan_min.${fan_name}.hidden" "true"
+            fi
+
+            if ((fan_value >= fan_max)); then
+                fan_max="$fan_value"
+
+                sw_state_set "fan_max.${fan_name}" "$fan_max"
+                sw_state_set "fan_max.${fan_name}.hidden" "true"
+            fi
+            sw_state_set "fan.${fan_name}.min" "$fan_min"
+            sw_state_set "fan.${fan_name}.max" "$fan_max"
+            sw_state_set "fan.${fan_name}.scale" "fixed"
+
         fi
 
         sw_state_set \

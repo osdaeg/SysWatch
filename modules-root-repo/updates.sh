@@ -14,12 +14,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Updates"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="System updates module"
 readonly MODULE_VERSION="0.1.0"
-MODULE_INTERVAL=${MODULE_INTERVAL:-3600}
+MODULE_INTERVAL=${MODULE_INTERVAL_NORMAL:-3600}
 MODULE_ORDER=${MODULE_ORDER:-1300}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
-
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -35,7 +35,6 @@ readonly UPDATES_CRITICAL="${UPDATES_CRITICAL:-25}"
 UPDATES_TOTAL=0
 UPDATES_MANAGER=""
 UPDATES_STATUS="${SW_STATUS_UNKNOWN}"
-
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -62,7 +61,6 @@ updates_collect_apt() {
     UPDATES_TOTAL="${#updates[@]}"
 
 }
-
 
 updates_collect_dnf() {
 
@@ -101,7 +99,7 @@ updates_collect_zypper() {
             END {
                 print count+0
             }
-        ' <<< "$output"
+        ' <<<"$output"
     )
 }
 
@@ -119,17 +117,17 @@ updates_collect_pacman() {
     output=$(pacman -Qu 2>/dev/null)
     rc=$?
 
-    if (( rc == 1 )) && [[ -z "$output" ]]; then
+    if ((rc == 1)) && [[ -z "$output" ]]; then
         # No hay actualizaciones.
         UPDATES_TOTAL=0
         return 0
     fi
 
-    if (( rc != 0 )); then
+    if ((rc != 0)); then
         return 1
     fi
 
-    UPDATES_TOTAL=$(wc -l <<< "$output")
+    UPDATES_TOTAL=$(wc -l <<<"$output")
 }
 
 updates_collect() {
@@ -146,60 +144,58 @@ updates_collect() {
 
     case "${ID:-}" in
 
-        debian|ubuntu)
+    debian | ubuntu)
 
-            UPDATES_MANAGER="apt"
-            updates_collect_apt
-            ;;
+        UPDATES_MANAGER="apt"
+        updates_collect_apt
+        ;;
 
-        fedora|rhel|rocky|almalinux|centos)
+    fedora | rhel | rocky | almalinux | centos)
 
-            UPDATES_MANAGER="dnf"
-            updates_collect_dnf
-            ;;
+        UPDATES_MANAGER="dnf"
+        updates_collect_dnf
+        ;;
 
-        opensuse*|sles)
+    opensuse* | sles)
 
-            UPDATES_MANAGER="zypper"
-            updates_collect_zypper
-            ;;
+        UPDATES_MANAGER="zypper"
+        updates_collect_zypper
+        ;;
 
-        arch)
+    arch)
 
-            UPDATES_MANAGER="pacman"
-            updates_collect_pacman
-            ;;
+        UPDATES_MANAGER="pacman"
+        updates_collect_pacman
+        ;;
 
-        *)
+    *)
 
-            return 1
-            ;;
+        return 1
+        ;;
 
     esac
 
 }
 
-
 updates_analyze() {
 
     UPDATES_STATUS="${SW_STATUS_OK}"
 
-    if (( UPDATES_TOTAL >= UPDATES_CRITICAL )); then
+    if ((UPDATES_TOTAL >= UPDATES_CRITICAL)); then
 
         UPDATES_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif (( UPDATES_TOTAL >= UPDATES_WARNING )); then
+    elif ((UPDATES_TOTAL >= UPDATES_WARNING)); then
 
         UPDATES_STATUS="${SW_STATUS_WARNING}"
 
-    elif (( UPDATES_TOTAL > 0 )); then
+    elif ((UPDATES_TOTAL > 0)); then
 
         UPDATES_STATUS="${SW_STATUS_INFO}"
 
     fi
 
 }
-
 
 updates_update_state() {
 
@@ -239,7 +235,6 @@ updates_report() {
 
 }
 
-
 sw_module_run() {
 
     sw_state_use "updates"
@@ -252,18 +247,18 @@ sw_module_run() {
 
     updates_collect || {
 
-    sw_status_update "${SW_STATUS_UNKNOWN}" || return 1
+        sw_status_update "${SW_STATUS_UNKNOWN}" || return 1
 
-    sw_state_set "manager" "${UPDATES_MANAGER}"
-    sw_state_set "total" "0"
+        sw_state_set "manager" "${UPDATES_MANAGER}"
+        sw_state_set "total" "0"
 
-    sw_state_save
+        sw_state_save
 
-    sw_log_warning \
-        "${MODULE_NAME}" \
-        "Unable to query package manager"
+        sw_log_warning \
+            "${MODULE_NAME}" \
+            "Unable to query package manager"
 
-    return 0
+        return 0
     }
 
     updates_analyze

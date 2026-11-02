@@ -7,9 +7,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Disk IO"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Disk I/O and top writers"
 readonly MODULE_VERSION="0.2.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-1000}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 

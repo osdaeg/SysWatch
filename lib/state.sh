@@ -23,11 +23,67 @@ STATE_DIR_PREVIOUS=""
 SW_STATE_REMOTE_FILE=""
 SW_STATE_REMOTE_DIR=""
 
+SW_STATE_REGISTRY="${CONFIG_DIR}/states.conf"
+
 declare -gA SW_STATE
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
+
+sw_state_registry() {
+
+    local state=$1
+    local line="${state}=${MODULE_SCRIPT}"
+
+    # Crear directorio si fuera necesario
+    mkdir -p "$(dirname "$SW_STATE_REGISTRY")"
+
+    # Crear o registrar el estado
+    if ! grep -q "^${state}=" "$SW_STATE_REGISTRY" 2>/dev/null; then
+        echo "$line" >> "$SW_STATE_REGISTRY"
+    fi
+
+}
+
+sw_state_purge() {
+
+    local state
+    local script
+    local tmp
+
+    [[ -f "$SW_STATE_REGISTRY" ]] || return 0
+
+    tmp="$(mktemp "${SW_STATE_REGISTRY}.XXXXXX")" || return 1
+
+    while IFS= read -r line; do
+
+        IFS="=" read -r state script <<< "$line"
+
+        [[ -z "$state" || "$state" =~ ^# ]] && {
+            echo "$line" >> "$tmp"
+            continue
+        }
+
+        if [[ -f "$script" ]]; then
+
+            echo "${state}=${script}" >> "$tmp"
+
+            #echo "$script existe" >> ~/scripts/syswatch/purge.txt
+
+        else
+
+            state="$(basename "$state" .state)"
+
+            sw_timer_create "$state" "10" "deletestate"
+
+        fi
+
+    done < "$SW_STATE_REGISTRY"
+
+    mv "$tmp" "$SW_STATE_REGISTRY"
+
+}
 
 sw_state_delete_prefix() {
 
@@ -82,25 +138,25 @@ sw_state_use() {
 sw_state_remote() {
 
     local remote=$1
-    
+
     if [ -n "$remote" ] && [ -d "${REMOTE_DIR}/$remote" ]; then
-    
+
         if sw_check_remote 3 "${REMOTE_DIR}/$remote"; then
-            
+
             SW_STATE_REMOTE_DIR="${REMOTE_DIR}/$remote"
             SW_STATE_REMOTE=true
             SW_STATE_REMOTE_FILE="${SW_STATE_REMOTE_DIR}/${SW_STATE_MODULE}-${HOSTNAME_ALIAS}.state"
             SW_STATE_MODULE_PREVIOUS=${SW_STATE_MODULE}
-    
+
         else
-        
+
             SW_STATE_REMOTE=false
             SW_STATE_REMOTE_DIR=
             SW_STATE_REMOTE_FILE=
         fi
-       
+
     else
-       return 1
+        return 1
     fi
 }
 
@@ -143,7 +199,7 @@ sw_state_load() {
 
         SW_STATE["${key}"]="${value}"
 
-    done < "${file}"
+    done <"${file}"
 
 }
 
@@ -152,7 +208,7 @@ sw_state_get() {
     local key="$1"
 
     printf '%s\n' "${SW_STATE[${key}]-}"
-    
+
     #echo "--${1}--" >> sw_state_get.txt
 
 }
@@ -174,7 +230,8 @@ sw_state_append_hostname() {
     sw_state_set "sw_hostname.label" "Host"
     sw_state_set "sw_hostname.order" "1000"
     sw_state_set "sw_hostname.hidden" "true"
-    
+    sw_state_set "sw_hostname.color" "yellow"
+
 }
 
 sw_state_temporal_copy() {
@@ -183,9 +240,7 @@ sw_state_temporal_copy() {
 
     mv "$SW_STATE_REMOTE_FILE" "$IMPORT_DIR"
     mv "$SW_STATE_REMOTE_DIR/$SW_STATE_MODULE-$HOSTNAME_ALIAS.timer" "$IMPORT_DIR"
- 
-    
-    
+
 }
 
 sw_state_save() {
@@ -193,27 +248,25 @@ sw_state_save() {
     local file
     local key
     local total
-    
+
     sw_state_append_hostname
-    
+
     if [ "$SW_STATE_REMOTE" == "true" ]; then
-    
+
         sw_state_set "sw_hostname.hidden" "false"
-        
-        
-        
+
     else
-    
-         sw_state_set "sw_hostname.hidden" "true"
-        
+
+        sw_state_set "sw_hostname.hidden" "true"
+
     fi
 
     file="$(sw_state_file)"
 
     sw_mkdir "${STATE_DIR}"
 
-    : > "${file}"
-    
+    : >"${file}"
+
     #echo "$SW_STATE_MODULE|$file|$STATE_DIR" >> ~/scripts/syswatch/problemas.txt
 
     while IFS= read -r key; do
@@ -224,31 +277,33 @@ sw_state_save() {
 
     done < <(
         printf '%s\n' "${!SW_STATE[@]}" | sort
-    ) >> "${file}"
-    
+    ) >>"${file}"
+
+    sw_state_registry "${file}"
+
     if [ "$SW_STATE_REMOTE" == "true" ]; then
 
         if [[ -f "$SW_STATE_REMOTE_DIR/.import" ]]; then
-    
-             cp "$file" "$SW_STATE_REMOTE_FILE"
 
-             total=$(sw_timer_from_module)
-        
-             sw_timer_create_raw "$SW_STATE_MODULE-$HOSTNAME_ALIAS" "$SW_STATE_REMOTE_DIR" "$total" "deletestate"
+            if ! sw_remote_export "$file" "$SW_STATE_REMOTE_FILE"; then
+                sw_log "ERROR" "Falló la exportación del estado remoto: $SW_STATE_REMOTE_FILE"
+            fi
 
-             sw_state_temporal_copy
+            total=$(sw_timer_from_module)
 
-             sw_csv_export_remote \
+            sw_timer_create_raw "$SW_STATE_MODULE-$HOSTNAME_ALIAS" "$SW_STATE_REMOTE_DIR" "$total" "deletestate"
+
+            #sw_state_temporal_copy
+
+            sw_csv_export_remote \
                 "${SW_STATE_MODULE}" \
                 "${SW_STATE_REMOTE_DIR}" \
                 "${SW_STATE_MODULE}-${HOSTNAME_ALIAS}"
-        fi    
-           
-    fi
-    
-    
+        fi
 
-   # sw_state_restore
+    fi
+
+    # sw_state_restore
 
 }
 
@@ -262,7 +317,7 @@ sw_state_delete() {
 
 sw_state_reset() {
 
-    > "$(sw_state_file)"
+    >"$(sw_state_file)"
 
 }
 

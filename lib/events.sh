@@ -32,7 +32,7 @@ sw_event() {
         "$level" \
         "$module" \
         "$message" \
-        >> "$(sw_events_file)"
+        >>"$(sw_events_file)"
 
     #
     # Optional notification backend.

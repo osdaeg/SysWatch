@@ -14,9 +14,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Network"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Network state monitoring"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-120}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-30}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -346,7 +349,7 @@ network_analyze() {
             if [[ -n "${NETWORK_ACTIVE_INTERFACE}" ]] &&
                 [[ "${NETWORK_INTERFACES[$i]}" != "${NETWORK_ACTIVE_INTERFACE}" ]]; then
 
-                NETWORK_STATUS[$i]="${SW_STATUS_INFO}"
+                NETWORK_STATUS[$i]="NONE"
 
             else
 
@@ -366,7 +369,7 @@ network_analyze() {
             if [[ -n "${NETWORK_ACTIVE_INTERFACE}" ]] &&
                 [[ "${NETWORK_INTERFACES[$i]}" != "${NETWORK_ACTIVE_INTERFACE}" ]]; then
 
-                NETWORK_STATUS[$i]="${SW_STATUS_INFO}"
+                NETWORK_STATUS[$i]="NONE"
 
             else
 

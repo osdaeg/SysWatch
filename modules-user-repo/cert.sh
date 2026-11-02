@@ -14,9 +14,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Certificates"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="TLS certificate expiration"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-86400}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-1300}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 

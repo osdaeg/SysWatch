@@ -14,9 +14,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Journal"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Detects relevant system journal events"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-1100}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -369,7 +372,7 @@ for line in sys.stdin:
             details+="${message}<br><br>"
         fi
 
-        echo "${message}" >>~/scripts/syswatch/journal-.txt
+        #echo "${message}" >>~/scripts/syswatch/journal-.txt
 
     done
 

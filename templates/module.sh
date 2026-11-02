@@ -407,6 +407,13 @@ sw_module_run() {
     #
     # This changes the status in the example.state file to OK after 10 executions of SysWatch.
 
+    # If necessary, it is possible to launch a module on demand using the 
+    # `sw_module_trigger` function, passing the module's filename—excluding 
+    # the path and the extension—as a parameter.
+    #
+    # sw_module_trigger "memory"
+    
+
 
 
 }

@@ -26,9 +26,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Backrest"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Backrest (restic) backup monitoring"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-86400}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-43}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 

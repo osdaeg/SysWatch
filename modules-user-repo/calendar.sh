@@ -14,10 +14,13 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Calendar"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Upcoming calendar events"
 readonly MODULE_VERSION="0.1.0"
 
 MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-1050}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -549,11 +552,19 @@ sw_module_run() {
 
     sw_state_load
 
+    echo "Caldav..."
+
     caldav_collect
+
+    echo "Webcal..."
 
     webcal_collect
 
+    echo "GCal..."
+
     gcal_collect
+
+    echo "ICS..."
 
     ics_collect
 

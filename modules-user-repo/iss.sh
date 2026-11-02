@@ -17,9 +17,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="ISS"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Monitorize ISS passing over a place"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-800}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -96,7 +99,7 @@ iss_refresh_cache() {
             "https://iss-api.polluxlabs.io/iss-pass?lat=${ISS_LAT}&lon=${ISS_LON}&visible_only=true"
     )"
 
-    echo "$response" >iss.json
+    echo "$response" | jq . >~/scripts/syswatch/cache/iss-.json
 
     if [[ -z "${response}" ]]; then
         if sw_cache_exists "iss.json"; then
@@ -285,7 +288,7 @@ iss_analyze() {
 
     ISS_STATUS="${SW_STATUS_OK}"
 
-    MODULE_INTERVAL=300
+    MODULE_INTERVAL="$MODULE_INTERVAL_NORMAL"
 
     if [[ "${ISS_VISIBLE}" == "true" ]]; then
 
@@ -297,13 +300,13 @@ iss_analyze() {
 
         ISS_STATUS="${SW_STATUS_CRITICAL}"
 
-        MODULE_INTERVAL=60
+        MODULE_INTERVAL=30
 
     elif ((ISS_MINUTES_REMAINING <= ISS_WARNING_MINUTES)); then
 
         ISS_STATUS="${SW_STATUS_WARNING}"
 
-        MODULE_INTERVAL=180
+        MODULE_INTERVAL="$MODULE_INTERVAL_ALT"
 
     fi
 
@@ -383,6 +386,11 @@ iss_report() {
 sw_module_run() {
 
     sw_state_use "iss"
+
+    if [[ -n "$MODULE_REMOTE" ]]; then
+        sw_state_remote "$MODULE_REMOTE"
+    fi
+
     sw_state_load
 
     iss_collect || return 1

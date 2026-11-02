@@ -11,9 +11,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Aircraft"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Nearby aircraft from OpenSky Network"
 readonly MODULE_VERSION="0.2.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-180}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-1200}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -24,7 +27,7 @@ readonly HEXDB_API_URL="https://hexdb.io/api/v1/aircraft"
 readonly AIRCRAFT_INFO_RADIUS_KM="${AIRCRAFT_INFO_RADIUS_KM:-5}"
 readonly AIRCRAFT_INFO_ALTITUDE_M="${AIRCRAFT_INFO_ALTITUDE_M:-1500}"
 
-MODULE_INTERVAL_IF_AIRCRAFTS=30
+#MODULE_INTERVAL_IF_AIRCRAFTS="${MODULE_INTERVAL_ALT}"
 AIRCRAFT_STATUS="${SW_STATUS_UNKNOWN}"
 AIRCRAFT_COUNT=0
 AIRCRAFT_INFO=0
@@ -55,6 +58,8 @@ AIRCRAFT_2_TYPE=""
 AIRCRAFT_2_OPERATOR=""
 
 declare -A AIRCRAFT_COUNTRIES=()
+
+AIRCRAFT_LAUNCH_RADAR="no"
 
 # -----------------------------------------------------------------------------
 # Countries
@@ -530,7 +535,7 @@ aircraft_collect() {
 
     # No airborne aircraft.
     [[ -n "${aircraft_list}" ]] || {
-        MODULE_INTERVAL=180
+        MODULE_INTERVAL="$MODULE_INTERVAL_NORMAL"
         return 0
     }
 
@@ -579,11 +584,11 @@ aircraft_collect() {
     [[ "${AIRCRAFT_COUNT}" =~ ^[0-9]+$ ]] || AIRCRAFT_COUNT=0
 
     ((AIRCRAFT_COUNT > 0)) || {
-        MODULE_INTERVAL=180
+        MODULE_INTERVAL="${MODULE_INTERVAL_NORMAL}"
         return 0
     }
 
-    MODULE_INTERVAL=$MODULE_INTERVAL_IF_AIRCRAFTS
+    MODULE_INTERVAL=$MODULE_INTERVAL_ALT
 
     # -------------------------------------------------------------------------
     # Sort by distance and keep only the two nearest.
@@ -801,6 +806,10 @@ aircraft_delete_second_state() {
 
 aircraft_update_state() {
 
+    local count
+
+    count="$(sw_state_get "count")"
+
     sw_state_set "module_version" "${MODULE_VERSION}"
 
     sw_state_set "module.label" "$(sw_translate "Aircraft")"
@@ -825,14 +834,18 @@ aircraft_update_state() {
         aircraft_delete_nearest_state
         aircraft_delete_second_state
 
+        if ((count > 0)); then
+            AIRCRAFT_LAUNCH_RADAR="yes"
+        fi
+
         return 0
     fi
+
+    AIRCRAFT_LAUNCH_RADAR="yes"
 
     # -------------------------------------------------------------------------
     # Nearest aircraft
     # -------------------------------------------------------------------------
-
-    echo "$(date) pasa un avion" >>~/scripts/syswatch/avioncitos.txt
 
     sw_state_set "nearest.title" "=========="
     sw_state_set "nearest.title.label" "$(sw_translate "Nearest")"
@@ -876,7 +889,7 @@ aircraft_update_state() {
     if ((AIRCRAFT_1_CLOSE == 1)); then
 
         sw_state_set "nearest.close" "1"
-        sw_state_set "nearest.close.label" "$(sw_translate "Más cercano")"
+        sw_state_set "nearest.close.label" "$(sw_translate "Nearest")"
         sw_state_set "nearest.close.color" "blue"
 
     else
@@ -1119,4 +1132,9 @@ sw_module_run() {
     sw_state_save
 
     aircraft_report
+
+    if [[ "$AIRCRAFT_LAUNCH_RADAR" == "yes" ]]; then
+        sw_module_trigger "aircraft_radar"
+    fi
+
 }

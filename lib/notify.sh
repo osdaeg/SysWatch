@@ -35,15 +35,15 @@ _sw_notify_level_rank() {
 
     case "$1" in
 
-        DEBUG)     printf '0\n' ;;
-        INFO)      printf '1\n' ;;
-        OK)        printf '1\n' ;;
-        UNKNOWN)   printf '1\n' ;;
-        DISABLED)  printf '1\n' ;;
-        WARNING)   printf '2\n' ;;
-        ERROR)     printf '3\n' ;;
-        CRITICAL)  printf '3\n' ;;
-        *)         printf '1\n' ;;
+    DEBUG) printf '0\n' ;;
+    INFO) printf '1\n' ;;
+    OK) printf '1\n' ;;
+    UNKNOWN) printf '1\n' ;;
+    DISABLED) printf '1\n' ;;
+    WARNING) printf '2\n' ;;
+    ERROR) printf '3\n' ;;
+    CRITICAL) printf '3\n' ;;
+    *) printf '1\n' ;;
 
     esac
 
@@ -53,10 +53,10 @@ _sw_notify_priority() {
 
     case "$1" in
 
-        CRITICAL) printf '8\n' ;;
-        ERROR)    printf '7\n' ;;
-        WARNING)  printf '5\n' ;;
-        *)        printf '3\n' ;;
+    CRITICAL) printf '8\n' ;;
+    ERROR) printf '7\n' ;;
+    WARNING) printf '5\n' ;;
+    *) printf '3\n' ;;
 
     esac
 
@@ -68,7 +68,7 @@ _sw_notify_should_send() {
 
     [[ "${ENABLE_GOTIFY}" == "true" ]] || return 1
 
-    (( $(_sw_notify_level_rank "${level}") >= $(_sw_notify_level_rank "${NOTIFY_MIN_LEVEL}") ))
+    (($(_sw_notify_level_rank "${level}") >= $(_sw_notify_level_rank "${NOTIFY_MIN_LEVEL}")))
 
 }
 

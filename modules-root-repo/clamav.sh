@@ -19,12 +19,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Clamav"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="ClamAV log monitoring (does not run scans itself)"
 readonly MODULE_VERSION="0.1.0"
-MODULE_INTERVAL=${MODULE_INTERVAL:-3540}
+MODULE_INTERVAL=${MODULE_INTERVAL_NORMAL:-3540}
 MODULE_ORDER=${MODULE_ORDER:-56}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
-
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -65,7 +65,7 @@ clamav_collect() {
     fi
 
     CLAMAV_LOG_MTIME="$(stat -c %Y "${CLAMAV_LOG}" 2>/dev/null)"
-    CLAMAV_LOG_AGE_HOURS=$(( ( $(date +%s) - CLAMAV_LOG_MTIME ) / 3600 ))
+    CLAMAV_LOG_AGE_HOURS=$((($(date +%s) - CLAMAV_LOG_MTIME) / 3600))
 
     CLAMAV_INFECTED=0
     CLAMAV_FILES_SCANNED=0
@@ -74,8 +74,7 @@ clamav_collect() {
     local found_summary="false"
     local line
 
-    while IFS= read -r line
-    do
+    while IFS= read -r line; do
 
         if [[ "${line}" =~ ^Infected\ files:\ *([0-9]+) ]]; then
 
@@ -92,7 +91,7 @@ clamav_collect() {
 
         fi
 
-    done < "${CLAMAV_LOG}"
+    done <"${CLAMAV_LOG}"
 
     if [[ "${found_summary}" != "true" ]]; then
 
@@ -110,7 +109,7 @@ clamav_analyze() {
 
     CLAMAV_STATUS="${SW_STATUS_OK}"
 
-    if (( CLAMAV_INFECTED > 0 )); then
+    if ((CLAMAV_INFECTED > 0)); then
 
         CLAMAV_STATUS="${SW_STATUS_CRITICAL}"
 
@@ -119,9 +118,8 @@ clamav_analyze() {
     # A stale log (the scan's own cron seems to have stopped running) is
     # worth flagging, but shouldn't downgrade a worse status already
     # found.
-    if (( CLAMAV_LOG_AGE_HOURS > CLAMAV_MAX_AGE_HOURS )) &&
-       [[ "${CLAMAV_STATUS}" == "${SW_STATUS_OK}" ]]
-    then
+    if ((CLAMAV_LOG_AGE_HOURS > CLAMAV_MAX_AGE_HOURS)) &&
+        [[ "${CLAMAV_STATUS}" == "${SW_STATUS_OK}" ]]; then
 
         CLAMAV_STATUS="${SW_STATUS_WARNING}"
 
@@ -135,18 +133,18 @@ clamav_update_state() {
 
     sw_state_set "module.label" "ClamAV"
     case "${CLAMAV_STATUS}" in
-        OK)
-            sw_state_set "module.icon" "lucide/shield-check"
-            ;;
-        WARNING)
-            sw_state_set "module.icon" "lucide/shield-alert"
-            ;;
-        CRITiCAL)
-            sw_state_set "module.icon" "lucide/shield-x"
-            ;;
-        *)
-            sw_state_set "module.icon" "lucide/shield"
-            ;;
+    OK)
+        sw_state_set "module.icon" "lucide/shield-check"
+        ;;
+    WARNING)
+        sw_state_set "module.icon" "lucide/shield-alert"
+        ;;
+    CRITiCAL)
+        sw_state_set "module.icon" "lucide/shield-x"
+        ;;
+    *)
+        sw_state_set "module.icon" "lucide/shield"
+        ;;
     esac
 
     sw_state_set "module.order" "$MODULE_ORDER"
@@ -180,7 +178,7 @@ sw_module_run() {
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
     fi
-    
+
     sw_state_load
 
     clamav_collect || return 1

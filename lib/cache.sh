@@ -9,12 +9,9 @@
 # Licensed under the MIT License.
 # -----------------------------------------------------------------------------
 
-
-
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
-
 
 # -----------------------------------------------------------------------------
 # Cache helpers
@@ -34,6 +31,25 @@ sw_cache_copy() {
     name=$(basename "$file")
 
     dest="$(sw_cache_file "${name}")"
+
+    cp "$file" "$dest"
+
+}
+
+sw_cache_copy_image_to_htmldir() {
+
+    local name
+    local file="$1"
+    local dest
+
+    [[ -f "${file}" ]] || {
+        echo -1
+        return 1
+    }
+
+    name=$(basename "$file")
+
+    dest="${HTML_DIR}/images/${name}"
 
     cp "$file" "$dest"
 
@@ -78,7 +94,6 @@ sw_cache_download() {
 
 }
 
-
 sw_cache_file() {
 
     printf "%s/%s" "${CACHE_DIR}" "$1"
@@ -105,7 +120,7 @@ sw_cache_age() {
         return
     }
 
-    echo $(( $(date +%s) - $(stat -c %Y "${file}") ))
+    echo $(($(date +%s) - $(stat -c %Y "${file}")))
 
 }
 
@@ -118,7 +133,7 @@ sw_cache_is_expired() {
 
     age="$(sw_cache_age "${name}")"
 
-    (( age < 0 || age >= max_age ))
+    ((age < 0 || age >= max_age))
 
 }
 
@@ -142,7 +157,7 @@ sw_cache_write() {
 
     local name="$1"
 
-    cat > "$(sw_cache_file "${name}")"
+    cat >"$(sw_cache_file "${name}")"
 
 }
 
@@ -153,4 +168,3 @@ sw_cache_read() {
     cat "$(sw_cache_file "${name}")"
 
 }
-

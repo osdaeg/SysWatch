@@ -14,9 +14,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Temperature"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Temperature sensor monitoring (lm-sensors or thermal_zone)"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-180}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-44}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 

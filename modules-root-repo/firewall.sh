@@ -14,9 +14,10 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Firewall"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Firewall status and configuration"
 readonly MODULE_VERSION="0.1.0"
-MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL=${MODULE_INTERVAL_NORMAL:-300}
 MODULE_ORDER=${MODULE_ORDER:-1000}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -79,24 +80,24 @@ firewall_collect_ufw() {
         sw_translate "$(
             printf '%s\n' "${output}" |
                 sed -n 's/^Default: \([^,]*\) (incoming),.*/\1/p'
-            )"
         )"
+    )"
     sw_state_set "incoming.label" "$(sw_translate "Incoming")"
 
     sw_state_set "outgoing" "$(
         sw_translate "$(
             printf '%s\n' "${output}" |
                 sed -n 's/^Default: [^,]* (incoming), \([^,]*\) (outgoing),.*/\1/p'
-            )"
         )"
+    )"
     sw_state_set "outgoing.label" "$(sw_translate "Outgoing")"
 
     sw_state_set "routed" "$(
         sw_translate "$(
             printf '%s\n' "${output}" |
                 sed -n 's/^Default: [^,]* (incoming), [^,]* (outgoing), \([^,]*\) (routed).*/\1/p'
-            )"
         )"
+    )"
     sw_state_set "routed.label" "$(sw_translate "Routed")"
 
     sw_state_set "logging" "$(
@@ -465,6 +466,11 @@ firewall_report() {
 sw_module_run() {
 
     sw_state_use "firewall"
+
+    if [[ -n "$MODULE_REMOTE" ]]; then
+        sw_state_remote "$MODULE_REMOTE"
+    fi
+
     sw_state_load
 
     firewall_collect

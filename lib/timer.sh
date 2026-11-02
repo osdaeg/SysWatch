@@ -17,11 +17,9 @@ TOTAL=""
 ACTION=""
 COUNT=""
 
-
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
-
 
 # -----------------------------------------------------------------------------
 # Timer helpers
@@ -33,8 +31,8 @@ sw_timer_create_raw() {
     local dir=$2
     local total=$3
     local action=$4
-    
-    echo "${module}=TOTAL:${total}|ACTION:${action}|COUNT:${total}" > "${dir}/${module}.timer"
+
+    echo "${module}=TOTAL:${total}|ACTION:${action}|COUNT:${total}" >"${dir}/${module}.timer"
 
 }
 
@@ -42,8 +40,8 @@ sw_timer_from_module() {
 
     local resultado
 
-    resultado=$(( (MODULE_INTERVAL / 60) + 2 ))
-    
+    resultado=$(((MODULE_INTERVAL / 60) + 10))
+
     printf '%s' "$resultado"
 
 }
@@ -79,12 +77,10 @@ sw_timer_use() {
 
     SW_TIMER_MODULE="$1"
 
-
     # comprueba si existe un .state asociado al timer
     state="$(sw_timer_state_file)"
     [[ -f "${state}" ]] || return 0
     SW_TIMER_STATE="${state}"
-
 
     # 2. Si no se pasa un argumento, salir silenciosamente
     if [ -z "$key" ]; then
@@ -108,13 +104,13 @@ sw_timer_use() {
     local old_ifs="$IFS"
     IFS='|'
     for par in $content; do
-        IFS=':' read -r clave valor <<< "$par"
+        IFS=':' read -r clave valor <<<"$par"
 
         # Asignar a las variables globales requeridas según la clave
         case "$clave" in
-            TOTAL)  TOTAL="$valor" ;;
-            ACTION) ACTION="$valor" ;;
-            COUNT)  COUNT="$valor" ;;
+        TOTAL) TOTAL="$valor" ;;
+        ACTION) ACTION="$valor" ;;
+        COUNT) COUNT="$valor" ;;
         esac
     done
     IFS="$old_ifs"
@@ -161,9 +157,9 @@ sw_timer_save() {
     # handles "replace if present" and "add if missing" in one pass.
     local tmp_file="${SW_TIMER_FILE}.tmp"
 
-    grep -v "^${SW_TIMER_MODULE}=" "$SW_TIMER_FILE" > "$tmp_file" 2>/dev/null || true
+    grep -v "^${SW_TIMER_MODULE}=" "$SW_TIMER_FILE" >"$tmp_file" 2>/dev/null || true
 
-    echo "$line" >> "$tmp_file"
+    echo "$line" >>"$tmp_file"
 
     mv "$tmp_file" "$SW_TIMER_FILE"
 
@@ -185,7 +181,7 @@ sw_timer_update_all() {
     fi
 
     # Limpiar o crear el archivo temporal para esta ejecución
-    > "$archivo_temporal"
+    >"$archivo_temporal"
 
     # 2. Leer el archivo línea por línea de forma segura
     while IFS= read -r line || [ -n "$line" ]; do
@@ -203,11 +199,11 @@ sw_timer_update_all() {
         # Parsear las claves internas
         IFS='|'
         for par in $datos; do
-            IFS=':' read -r clave valor <<< "$par"
+            IFS=':' read -r clave valor <<<"$par"
             case "$clave" in
-                TOTAL)  v_time="$valor" ;;
-                ACTION) v_action="$valor" ;;
-                COUNT)  v_count="$valor" ;;
+            TOTAL) v_time="$valor" ;;
+            ACTION) v_action="$valor" ;;
+            COUNT) v_count="$valor" ;;
             esac
         done
         IFS="$old_ifs"
@@ -223,10 +219,10 @@ sw_timer_update_all() {
         else
             # Si sigue activo, se arma la cadena actualizada y se guarda en el temporal
             local new_line="${modulo}=TOTAL:${v_time}|ACTION:${v_action}|COUNT:${new_count}"
-            echo "$new_line" >> "$archivo_temporal"
+            echo "$new_line" >>"$archivo_temporal"
         fi
 
-    done < "$SW_TIMER_FILE"
+    done <"$SW_TIMER_FILE"
 
     # 5. Reemplazar el archivo original con la versión actualizada
     mv "$archivo_temporal" "$SW_TIMER_FILE"
@@ -260,12 +256,12 @@ sw_timer_create() {
     fi
 
     case "$action" in
-        statusok|statuswarning|statuscritical|deletestate|statusinfo)
-            # Acción válida, continuar con el script
-            ;;
-        *)
-            return 1
-            ;;
+    statusok | statuswarning | statuscritical | deletestate | statusinfo)
+        # Acción válida, continuar con el script
+        ;;
+    *)
+        return 1
+        ;;
     esac
 
     # 3. Armar la cadena con el formato solicitado
@@ -278,13 +274,61 @@ sw_timer_create() {
     # con el delimitador de sed.
     local tmp_file="${SW_TIMER_FILE}.tmp"
 
-    grep -v "^${modulo}=" "$SW_TIMER_FILE" > "$tmp_file" 2>/dev/null || true
+    grep -v "^${modulo}=" "$SW_TIMER_FILE" >"$tmp_file" 2>/dev/null || true
 
-    echo "$nueva_linea" >> "$tmp_file"
+    echo "$nueva_linea" >>"$tmp_file"
 
     mv "$tmp_file" "$SW_TIMER_FILE"
 }
 
 sw_timer_actions() {
     printf '%s\n' "${SW_TIMER_DONE[@]}"
+}
+
+sw_timer_process() {
+
+    local entry
+    local modulo
+    local action
+
+    sw_state_clear
+
+    #printf '%s\n' "${SW_TIMER_DONE[@]}" >>~/scripts/syswatch/timer.txt
+
+    for entry in "${SW_TIMER_DONE[@]}"; do
+
+        modulo="${entry%%:*}"
+        action="${entry#*:}"
+
+        #echo "$(date) ENTRY=[$entry] MODULO=[$modulo] ACTION=[$action]" \
+        #    >>~/scripts/syswatch/timer.txt
+
+        sw_state_use "${modulo}"
+
+        case "${action}" in
+
+        deletestate)
+            sw_state_delete
+            ;;
+        statusok)
+            sw_status_update_for "${modulo}" "${SW_STATUS_OK}"
+            ;;
+        statuswarning)
+            sw_status_update_for "${modulo}" "${SW_STATUS_WARNING}"
+            ;;
+        statuscritical)
+            sw_status_update_for "${modulo}" "${SW_STATUS_CRITICAL}"
+            ;;
+        statusinfo)
+            sw_status_update_for "${modulo}" "${SW_STATUS_INFO}"
+            ;;
+        *)
+            #echo "$(date) CASE NO MATCH: [$action]" \
+            #    >>~/scripts/syswatch/timer.txt
+            ;;
+
+        esac
+
+    done
+
 }

@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 # SysWatch
 #
-# module TENIS
+# module BOX
 #
 # Requires IESPIEN (https://github.com/osdaeg/iespien)
 #
@@ -16,34 +16,37 @@
 # Module metadata
 # -----------------------------------------------------------------------------
 
-readonly MODULE_NAME="IESPIEN-TENIS"
-readonly MODULE_DESCRIPTION="TENIS events"
+readonly MODULE_NAME="IESPIEN-BOX"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
+readonly MODULE_DESCRIPTION="BOX events"
 readonly MODULE_VERSION="0.1.0"
 
-MODULE_INTERVAL=${MODULE_INTERVAL:-21400}
-MODULE_ORDER=${MODULE_ORDER:-9999}
+MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
+MODULE_ORDER=${MODULE_ORDER:-10}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
 
-readonly TENIS_WARNING="${TENIS_WARNING:-80}"
-readonly TENIS_CRITICAL="${TENIS_CRITICAL:-95}"
+readonly BOX_WARNING="${BOX_WARNING:-80}"
+readonly BOX_CRITICAL="${BOX_CRITICAL:-95}"
 
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
 
-TENIS_VALUE=0
-TENIS_STATUS="${SW_STATUS_UNKNOWN}"
-TENIS_EVENTS=()
+BOX_VALUE=0
+BOX_STATUS="${SW_STATUS_UNKNOWN}"
+BOX_EVENTS=()
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
 
-TENIS_collect() {
+BOX_collect() {
 
     local anio mes dia
     local file cached item
@@ -53,13 +56,13 @@ TENIS_collect() {
     mes=$(date +%m)
     dia=$(date +%d)
 
-    file="/home/daniel/docker/util/iespien/cache/tenis_${anio}-${mes}-${dia}.json"
+    file="/home/daniel/docker/util/iespien/cache/box_${anio}-${mes}-${dia}.json"
 
     [[ -f "$file" ]] || return 1
 
     sw_cache_copy "$file"
 
-    cached=$(sw_cache_file "tenis_${anio}-${mes}-${dia}.json")
+    cached=$(sw_cache_file "box_${anio}-${mes}-${dia}.json")
 
     [[ -f "$cached" ]] || return 1
 
@@ -72,7 +75,7 @@ TENIS_collect() {
         escenario=$(jq -r '.escenario' <<<"$item")
         canales=$(jq -r '.canales | join(", ")' <<<"$item")
 
-        TENIS_EVENTS+=(
+        BOX_EVENTS+=(
             "${competicion}|${contrincantes}|${fecha}|${hora}|${escenario}|${canales}"
         )
 
@@ -87,27 +90,27 @@ TENIS_collect() {
     ' "$cached"
     )
 
-    #printf '%s\n' "${TENIS_EVENTS[@]}"
+    #printf '%s\n' "${BOX_EVENTS[@]}"
 
 }
 
-TENIS_analyze() {
+BOX_analyze() {
 
-    TENIS_STATUS="${SW_STATUS_OK}"
+    BOX_STATUS="${SW_STATUS_OK}"
 
-    if ((TENIS_VALUE >= TENIS_CRITICAL)); then
+    if ((BOX_VALUE >= BOX_CRITICAL)); then
 
-        TENIS_STATUS="${SW_STATUS_CRITICAL}"
+        BOX_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif ((TENIS_VALUE >= TENIS_WARNING)); then
+    elif ((BOX_VALUE >= BOX_WARNING)); then
 
-        TENIS_STATUS="${SW_STATUS_WARNING}"
+        BOX_STATUS="${SW_STATUS_WARNING}"
 
     fi
 
 }
 
-TENIS_update_state() {
+BOX_update_state() {
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
@@ -115,8 +118,8 @@ TENIS_update_state() {
     # Module metadata (consumed by lib/html.sh)
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "$(sw_translate "Tennis")"
-    sw_state_set "module.icon" "sports/tenis"
+    sw_state_set "module.label" "$(sw_translate "Boxing")"
+    sw_state_set "module.icon" "sports/box"
     sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
@@ -132,7 +135,7 @@ TENIS_update_state() {
     local previous="previo"
     local event
 
-    for data in "${TENIS_EVENTS[@]}"; do
+    for data in "${BOX_EVENTS[@]}"; do
 
         IFS='|' read -r competicion contrincantes fecha hora escenario canales <<<"$data"
 
@@ -170,17 +173,17 @@ TENIS_update_state() {
 
 }
 
-TENIS_report() {
+BOX_report() {
 
     sw_log_info \
         "${MODULE_NAME}" \
-        "TENIS value: ${TENIS_VALUE} (${TENIS_STATUS})"
+        "BOX value: ${BOX_VALUE} (${BOX_STATUS})"
 
 }
 
 sw_module_run() {
 
-    sw_state_use "tenis"
+    sw_state_use "box"
 
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
@@ -190,23 +193,23 @@ sw_module_run() {
 
     sw_state_clear
 
-    TENIS_collect
+    BOX_collect
 
-    TENIS_analyze
+    BOX_analyze
 
-    sw_status_update "${TENIS_STATUS}" || return 1
+    sw_status_update "${BOX_STATUS}" || return 1
 
-    TENIS_update_state
+    BOX_update_state
 
     sw_state_save
 
-    TENIS_report
+    BOX_report
 
     # Optional: append to CSV history for sparkline widgets.
     #
     # sw_csv_append \
-    #     "TENIS" \
+    #     "BOX" \
     #     "value" \
-    #     "${TENIS_VALUE}"
+    #     "${BOX_VALUE}"
 
 }

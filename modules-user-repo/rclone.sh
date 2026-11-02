@@ -25,9 +25,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Rclone"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="rclone FUSE mount health monitoring"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-360}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-41}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -367,7 +370,7 @@ rclone_update_state() {
 
         key="${RCLONE_KEYS[$i]}"
 
-        sw_state_use "${key}"
+        sw_state_use "rclone-${key}"
         sw_state_load
 
         sw_state_set "module_version" "${MODULE_VERSION}"

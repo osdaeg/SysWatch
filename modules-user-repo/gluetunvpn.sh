@@ -22,6 +22,8 @@ readonly MODULE_NAME="GluetunVPN"
 readonly MODULE_DESCRIPTION="Gluetun VPN status monitoring"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-120}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-70}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -55,6 +57,8 @@ GLUETUN_COUNTRY=""
 GLUETUN_CITY=""
 GLUETUN_PORT_FORWARD=""
 GLUETUN_STATUS="${SW_STATUS_OK}"
+GLUETUN_ID=""
+GLUETUN_NAMESPACE=""
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -98,29 +102,66 @@ gluetun_collect() {
 
     fi
 
-    GLUETUN_VPN_STATUS="$(jq -r '.status // "unknown"' <<< "${status_json}")"
+    GLUETUN_VPN_STATUS="$(jq -r '.status // "unknown"' <<<"${status_json}")"
 
     local settings_json
     settings_json="$(gluetun_curl "/v1/vpn/settings")"
 
-    GLUETUN_VPN_TYPE="$(jq -r '.type // "unknown"' <<< "${settings_json}")"
-    GLUETUN_PROVIDER="$(jq -r '.provider.name // "unknown"' <<< "${settings_json}")"
+    GLUETUN_VPN_TYPE="$(jq -r '.type // "unknown"' <<<"${settings_json}")"
+    GLUETUN_PROVIDER="$(jq -r '.provider.name // "unknown"' <<<"${settings_json}")"
     GLUETUN_INTERFACE="$(
-        jq -r '.openvpn.interface // .wireguard.interface // "unknown"' <<< "${settings_json}"
+        jq -r '.openvpn.interface // .wireguard.interface // "unknown"' <<<"${settings_json}"
     )"
 
     local ip_json
     ip_json="$(gluetun_curl "/v1/publicip/ip")"
 
-    GLUETUN_PUBLIC_IP="$(jq -r '.public_ip // "unknown"' <<< "${ip_json}")"
-    GLUETUN_REGION="$(jq -r '.region // ""' <<< "${ip_json}")"
-    GLUETUN_COUNTRY="$(jq -r '.country // ""' <<< "${ip_json}")"
-    GLUETUN_CITY="$(jq -r '.city // ""' <<< "${ip_json}")"
+    GLUETUN_PUBLIC_IP="$(jq -r '.public_ip // "unknown"' <<<"${ip_json}")"
+    GLUETUN_REGION="$(jq -r '.region // ""' <<<"${ip_json}")"
+    GLUETUN_COUNTRY="$(jq -r '.country // ""' <<<"${ip_json}")"
+    GLUETUN_CITY="$(jq -r '.city // ""' <<<"${ip_json}")"
 
     local pf_json
     pf_json="$(gluetun_curl "/v1/portforward")"
 
-    GLUETUN_PORT_FORWARD="$(jq -r '.port // "N/A"' <<< "${pf_json}")"
+    GLUETUN_PORT_FORWARD="$(jq -r '.port // "N/A"' <<<"${pf_json}")"
+
+    # -------------------------------------------------------------------------
+    # Get container ID and network namespace
+    # -------------------------------------------------------------------------
+
+    local container_info
+    local container_pid
+
+    GLUETUN_ID=""
+    GLUETUN_NAMESPACE=""
+
+    container_info="$(
+        docker inspect \
+            --format '{{.Id}} {{.State.Pid}}' \
+            "${GLUETUN_CONTAINER_NAME}" 2>/dev/null
+    )" || return 1
+
+    read -r GLUETUN_ID container_pid <<<"${container_info}"
+
+    [[ -n "${GLUETUN_ID}" && "${container_pid}" =~ ^[1-9][0-9]*$ ]] || {
+        GLUETUN_ID=""
+        return 1
+    }
+
+    GLUETUN_NAMESPACE="$(
+        docker exec "${GLUETUN_CONTAINER_NAME}" \
+            readlink /proc/1/ns/net 2>/dev/null
+    )" || {
+        GLUETUN_ID=""
+        GLUETUN_NAMESPACE=""
+        return 1
+    }
+
+    [[ -n "${GLUETUN_NAMESPACE}" ]] || {
+        GLUETUN_ID=""
+        return 1
+    }
 
 }
 
@@ -197,7 +238,7 @@ sw_module_run() {
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
     fi
-    
+
     sw_state_load
 
     gluetun_collect || return 1
@@ -215,5 +256,7 @@ sw_module_run() {
     sw_message_send "qbittorrent_info1" "$GLUETUN_INTERFACE" "true" "interface"
     sw_message_send "qbittorrent_info1" "$GLUETUN_PUBLIC_IP" "true" "ip"
     sw_message_send "qbittorrent_info1" "$GLUETUN_PORT_FORWARD" "true" "port"
+    sw_message_send "qbittorrent_info1" "$GLUETUN_ID" "true" "id"
+    sw_message_send "qbittorrent_info1" "$GLUETUN_NAMESPACE" "true" "namespace"
 
 }

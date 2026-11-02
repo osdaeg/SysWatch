@@ -39,7 +39,9 @@ OPENSKY_FILE = CACHE_DIR / "opensky.json"
 
 TILES_DIR = CACHE_DIR / "aircraft_map_tiles"
 BASEMAP_FILE = CACHE_DIR / "aircraft_map_base.png"
+GRAYSCALE_BASEMAP_FILE = CACHE_DIR / "aircraft_map_base_grayscale.png"
 OUTPUT_FILE = HTML_DIR / "mapa_aviones.png"
+GRAYSCALE_OUTPUT_FILE = HTML_DIR / "mapa_aviones_grayscale.png"
 
 
 # -----------------------------------------------------------------------------
@@ -60,7 +62,7 @@ TILE_URL = (
 )
 
 MAP_NAME = "es"
-MAP_STYLE = "dark2"
+MAP_STYLES = ("dark2", "grayscale")
 
 
 # -----------------------------------------------------------------------------
@@ -250,30 +252,35 @@ def required_tiles(bounds, zoom):
     return tiles
 
 
-def tile_path(z, x, y):
-    path = TILES_DIR / str(z) / str(x) / f"{y}.png"
+def tile_path(style, z, x, y):
+    # Keep styles isolated while preserving the existing dark2 tile cache.
+    if style == "dark2":
+        path = TILES_DIR / str(z) / str(x) / f"{y}.png"
+    else:
+        path = TILES_DIR / style / str(z) / str(x) / f"{y}.png"
+
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
-def basemap_is_fresh(refresh_days):
+def basemap_is_fresh(basemap_file, refresh_days):
     """
     Returns True if the cached base map exists and is still fresh.
     """
 
-    if not BASEMAP_FILE.exists():
+    if not basemap_file.exists():
         return False
 
     if refresh_days <= 0:
         return False
 
-    age_seconds = time.time() - BASEMAP_FILE.stat().st_mtime
+    age_seconds = time.time() - basemap_file.stat().st_mtime
     max_age_seconds = refresh_days * 86400
 
     return age_seconds < max_age_seconds
 
 
-def download_tile(z, x, y, api_key, force_refresh=False):
-    path = tile_path(z, x, y)
+def download_tile(style, z, x, y, api_key, force_refresh=False):
+    path = tile_path(style, z, x, y)
 
     if (
         path.exists()
@@ -284,7 +291,7 @@ def download_tile(z, x, y, api_key, force_refresh=False):
 
     url = TILE_URL.format(
         mapname=MAP_NAME,
-        style=MAP_STYLE,
+        style=style,
         z=z,
         x=x,
         y=y,
@@ -332,6 +339,8 @@ def download_tile(z, x, y, api_key, force_refresh=False):
 # -----------------------------------------------------------------------------
 
 def build_base_map(
+    style,
+    basemap_file,
     center_lat,
     center_lon,
     width_km,
@@ -382,6 +391,7 @@ def build_base_map(
 
     for z, x, y in tiles:
         path = download_tile(
+            style,
             z,
             x,
             y,
@@ -444,9 +454,9 @@ def build_base_map(
         Image.Resampling.LANCZOS,
     )
 
-    base.save(BASEMAP_FILE, "PNG", optimize=True)
+    base.save(basemap_file, "PNG", optimize=True)
 
-    print(f"Mapa base generado: {BASEMAP_FILE}")
+    print(f"Mapa base ({style}) generado: {basemap_file}")
 
     return base
 
@@ -735,129 +745,9 @@ def render_aircraft(
 # Main
 # -----------------------------------------------------------------------------
 
-def main():
-    global MAP_WIDTH_KM
-    global MAP_HEIGHT_KM
-
-    env = load_env(ENV_FILE)
-
-    center_lat = env_float(env, "WEATHER_LAT")
-    center_lon = env_float(env, "WEATHER_LON")
-    
-    show_labels = env_bool(
-        env,
-        "AIRCRAFT_RADAR_LABEL",
-        False,
-    )
-
-    MAP_WIDTH_KM = env_int(
-        env,
-        "AIRCRAFT_MAP_WIDTH_KM",
-        DEFAULT_WIDTH_KM,
-    )
-
-    MAP_HEIGHT_KM = env_int(
-        env,
-        "AIRCRAFT_MAP_HEIGHT_KM",
-        DEFAULT_HEIGHT_KM,
-    )
-
-    zoom = env_int(
-        env,
-        "AIRCRAFT_MAP_ZOOM",
-        DEFAULT_ZOOM,
-    )
-
-    refresh_days = env_int(
-        env,
-        "AIRCRAFT_MAP_REFRESH_DAYS",
-        DEFAULT_REFRESH_DAYS,
-    )
-
-    api_key = env.get("TRACESTRACK_API", "").strip()
-
-    if not api_key:
-        die("TRACESTRACK_API no está configurada en .env")
-
-    print("SysWatch Aircraft Radar")
-    print("-----------------------")
-    print(f"Centro: {center_lat}, {center_lon}")
-    print(f"Área:   {MAP_WIDTH_KM} x {MAP_HEIGHT_KM} km")
-    print(f"Zoom:   {zoom}")
-    print(f"Refresh: {refresh_days} días")
-
-    # For v0.1 we always make sure the required tiles exist.
-    # Refresh-age logic will be added after the first visual test.
-    # ------------------------------------------------------------------
-    # Base map cache
-    # ------------------------------------------------------------------
-
-    if basemap_is_fresh(refresh_days):
-        age_days = (
-            time.time() - BASEMAP_FILE.stat().st_mtime
-        ) / 86400
-
-        print(
-            f"Mapa base cacheado: "
-            f"{age_days:.1f} días de antigüedad"
-        )
-
-        base = Image.open(BASEMAP_FILE).convert("RGB")
-
-    else:
-        if BASEMAP_FILE.exists():
-            print(
-                "Mapa base vencido; "
-                "actualizando tiles de Tracestrack..."
-            )
-        else:
-            print(
-                "Mapa base inexistente; "
-                "descargando tiles de Tracestrack..."
-            )
-
-        try:
-            base = build_base_map(
-                center_lat,
-                center_lon,
-                MAP_WIDTH_KM,
-                MAP_HEIGHT_KM,
-                zoom,
-                api_key,
-                force_refresh=True,
-            )
-
-        except Exception as exc:
-            if BASEMAP_FILE.exists():
-                print(
-                    "Aviso: no se pudo actualizar el mapa base: "
-                    f"{exc}"
-                )
-                print(
-                    "Se utilizará el mapa base anterior."
-                )
-
-                base = Image.open(
-                    BASEMAP_FILE
-                ).convert("RGB")
-
-            else:
-                raise
-
-    states = load_aircraft()
-
-    aircraft_count = render_aircraft(
-        base,
-        center_lat,
-        center_lon,
-        zoom,
-        states,
-        show_labels,
-    )
-
-    # Attribution required by the map provider / source data.
+def add_attribution(base):
+    """Draw the required map attribution on a rendered image."""
     draw = ImageDraw.Draw(base)
-
     attribution = "© OpenStreetMap contributors · Tracestrack"
 
     try:
@@ -868,14 +758,8 @@ def main():
     except OSError:
         font = ImageFont.load_default()
 
-    bbox = draw.textbbox(
-        (0, 0),
-        attribution,
-        font=font,
-    )
-
+    bbox = draw.textbbox((0, 0), attribution, font=font)
     padding = 6
-
     x = base.width - (bbox[2] - bbox[0]) - padding
     y = base.height - (bbox[3] - bbox[1]) - padding
 
@@ -888,7 +772,6 @@ def main():
         ),
         fill="#0b1116",
     )
-
     draw.text(
         (x, y),
         attribution,
@@ -896,14 +779,114 @@ def main():
         fill="#cccccc",
     )
 
-    base.save(
-        OUTPUT_FILE,
-        "PNG",
-        optimize=True,
+
+def render_style(
+    style,
+    basemap_file,
+    output_file,
+    center_lat,
+    center_lon,
+    zoom,
+    refresh_days,
+    api_key,
+    states,
+    show_labels,
+):
+    """Load or refresh one style's base map, then render aircraft on it."""
+    if basemap_is_fresh(basemap_file, refresh_days):
+        age_days = (time.time() - basemap_file.stat().st_mtime) / 86400
+        print(f"Mapa base {style} cacheado: {age_days:.1f} días de antigüedad")
+        base = Image.open(basemap_file).convert("RGB")
+    else:
+        if basemap_file.exists():
+            print(f"Mapa base {style} vencido; actualizando tiles de Tracestrack...")
+        else:
+            print(f"Mapa base {style} inexistente; descargando tiles de Tracestrack...")
+
+        try:
+            base = build_base_map(
+                style,
+                basemap_file,
+                center_lat,
+                center_lon,
+                MAP_WIDTH_KM,
+                MAP_HEIGHT_KM,
+                zoom,
+                api_key,
+                force_refresh=True,
+            )
+        except Exception as exc:
+            if basemap_file.exists():
+                print(f"Aviso: no se pudo actualizar el mapa base {style}: {exc}")
+                print("Se utilizará el mapa base anterior.")
+                base = Image.open(basemap_file).convert("RGB")
+            else:
+                raise
+
+    aircraft_count = render_aircraft(
+        base,
+        center_lat,
+        center_lon,
+        zoom,
+        states,
+        show_labels,
+    )
+    add_attribution(base)
+    base.save(output_file, "PNG", optimize=True)
+    print(f"Radar {style} generado: {output_file}")
+    return aircraft_count
+
+
+def main():
+    global MAP_WIDTH_KM
+    global MAP_HEIGHT_KM
+
+    env = load_env(ENV_FILE)
+    center_lat = env_float(env, "WEATHER_LAT")
+    center_lon = env_float(env, "WEATHER_LON")
+    show_labels = env_bool(env, "AIRCRAFT_RADAR_LABEL", False)
+
+    MAP_WIDTH_KM = env_int(env, "AIRCRAFT_MAP_WIDTH_KM", DEFAULT_WIDTH_KM)
+    MAP_HEIGHT_KM = env_int(env, "AIRCRAFT_MAP_HEIGHT_KM", DEFAULT_HEIGHT_KM)
+    zoom = env_int(env, "AIRCRAFT_MAP_ZOOM", DEFAULT_ZOOM)
+    refresh_days = env_int(env, "AIRCRAFT_MAP_REFRESH_DAYS", DEFAULT_REFRESH_DAYS)
+    api_key = env.get("TRACESTRACK_API", "").strip()
+
+    if not api_key:
+        die("TRACESTRACK_API no está configurada en .env")
+
+    print("SysWatch Aircraft Radar")
+    print("-----------------------")
+    print(f"Centro: {center_lat}, {center_lon}")
+    print(f"Área:   {MAP_WIDTH_KM} x {MAP_HEIGHT_KM} km")
+    print(f"Zoom:   {zoom}")
+    print(f"Refresh: {refresh_days} días")
+
+    states = load_aircraft()
+    total_aircraft = 0
+
+    styles = (
+        ("dark2", BASEMAP_FILE, OUTPUT_FILE),
+        ("grayscale", GRAYSCALE_BASEMAP_FILE, GRAYSCALE_OUTPUT_FILE),
     )
 
-    print(f"Aviones dibujados: {aircraft_count}")
-    print(f"Radar generado: {OUTPUT_FILE}")
+    for style, basemap_file, output_file in styles:
+        count = render_style(
+            style,
+            basemap_file,
+            output_file,
+            center_lat,
+            center_lon,
+            zoom,
+            refresh_days,
+            api_key,
+            states,
+            show_labels,
+        )
+        if style == "dark2":
+            total_aircraft = count
+
+    print(f"Aviones dibujados: {total_aircraft}")
 
 
 if __name__ == "__main__":

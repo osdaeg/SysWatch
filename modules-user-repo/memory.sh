@@ -14,9 +14,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Memory"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Memory usage monitoring"
-readonly MODULE_VERSION="0.1.0"
+readonly MODULE_VERSION="0.2.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-240}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-20}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -35,6 +38,10 @@ MEMORY_TOTAL_MB=0
 MEMORY_USED_MB=0
 MEMORY_AVAILABLE_MB=0
 MEMORY_USAGE=0
+
+SWAP_TOTAL_MB=0
+SWAP_USED_MB=0
+SWAP_FREE_MB=0
 
 MEMORY_STATUS="${SW_STATUS_UNKNOWN}"
 MEMORY_PROCESS=()
@@ -66,6 +73,8 @@ memory_collect() {
 
     local total_kb
     local available_kb
+    local swap_total_kb
+    local swap_free_kb
 
     total_kb=$(
         awk '/^MemTotal:/ {print $2}' /proc/meminfo
@@ -75,11 +84,23 @@ memory_collect() {
         awk '/^MemAvailable:/ {print $2}' /proc/meminfo
     )
 
+    swap_total_kb=$(
+        awk '/^SwapTotal:/ {print $2}' /proc/meminfo
+    )
+
+    swap_free_kb=$(
+        awk '/^SwapFree:/ {print $2}' /proc/meminfo
+    )
+
     MEMORY_TOTAL_MB=$((total_kb / 1024))
     MEMORY_AVAILABLE_MB=$((available_kb / 1024))
     MEMORY_USED_MB=$((MEMORY_TOTAL_MB - MEMORY_AVAILABLE_MB))
 
     MEMORY_USAGE=$((MEMORY_USED_MB * 100 / MEMORY_TOTAL_MB))
+
+    SWAP_TOTAL_MB=$((swap_total_kb / 1024))
+    SWAP_FREE_MB=$((swap_free_kb / 1024))
+    SWAP_USED_MB=$((SWAP_TOTAL_MB - SWAP_FREE_MB))
 
 }
 
@@ -124,10 +145,48 @@ memory_update_state() {
 
     sw_state_set "total_mb.label" "$(sw_translate "Total")"
     sw_state_set "total_mb.order" "20"
+    sw_state_set "total_mb.unit" "Mb"
     sw_state_set "used_mb.label" "$(sw_translate "Used")"
     sw_state_set "used_mb.order" "30"
+    sw_state_set "used_mb.unit" "Mb"
     sw_state_set "available_mb.label" "$(sw_translate "Available")"
     sw_state_set "available_mb.order" "40"
+    sw_state_set "available_mb.unit" "Mb"
+
+    # -------------------------------------------------------------------------
+    # Swap
+    # -------------------------------------------------------------------------
+
+    sw_state_delete_key "swap_status"
+
+    if ((SWAP_TOTAL_MB > 0)); then
+
+        sw_state_set "swap_total_mb" "${SWAP_TOTAL_MB}"
+        sw_state_set "swap_total_mb.label" "$(sw_translate "Swap total")"
+        sw_state_set "swap_total_mb.order" "50"
+        sw_state_set "swap_total_mb.unit" "Mb"
+
+        sw_state_set "swap_used_mb" "${SWAP_USED_MB}"
+        sw_state_set "swap_used_mb.label" "$(sw_translate "Swap used")"
+        sw_state_set "swap_used_mb.order" "60"
+        sw_state_set "swap_used_mb.unit" "Mb"
+
+        sw_state_set "swap_free_mb" "${SWAP_FREE_MB}"
+        sw_state_set "swap_free_mb.label" "$(sw_translate "Swap free")"
+        sw_state_set "swap_free_mb.order" "70"
+        sw_state_set "swap_free_mb.unit" "Mb"
+
+    else
+
+        sw_state_delete_key "swap_total_mb"
+        sw_state_delete_key "swap_used_mb"
+        sw_state_delete_key "swap_free_mb"
+
+        sw_state_set "swap_status" "$(sw_translate "Swap not configured")"
+        sw_state_set "swap_status.label" "$(sw_translate "Swap")"
+        sw_state_set "swap_status.order" "50"
+
+    fi
 
 }
 
@@ -154,6 +213,8 @@ sw_module_run() {
     memory_update_state
 
     sw_state_save
+
+    #sw_message_send_to_intercom "Uso de memoria: ${MEMORY_USED_MB}"
 
     sw_state_clear
 

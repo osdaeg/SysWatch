@@ -19,9 +19,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="SmnForecast"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="SMN extended forecast (unofficial API)"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-1800}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-9}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 

@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 # SysWatch
 #
-# module BOX
+# module AUTOMOVILISMO
 #
 # Requires IESPIEN (https://github.com/osdaeg/iespien)
 #
@@ -16,11 +16,14 @@
 # Module metadata
 # -----------------------------------------------------------------------------
 
-readonly MODULE_NAME="IESPIEN-BOX"
-readonly MODULE_DESCRIPTION="BOX events"
+readonly MODULE_NAME="IESPIEN-AUTOMOVILISMO"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
+readonly MODULE_DESCRIPTION="AUTOMOVILISMO events"
 readonly MODULE_VERSION="0.1.0"
 
 MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-10}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -28,22 +31,22 @@ MODULE_REMOTE=${MODULE_REMOTE:-""}
 # Configuration
 # -----------------------------------------------------------------------------
 
-readonly BOX_WARNING="${BOX_WARNING:-80}"
-readonly BOX_CRITICAL="${BOX_CRITICAL:-95}"
+readonly AUTOMOVILISMO_WARNING="${AUTOMOVILISMO_WARNING:-80}"
+readonly AUTOMOVILISMO_CRITICAL="${AUTOMOVILISMO_CRITICAL:-95}"
 
 # -----------------------------------------------------------------------------
 # Module variables
 # -----------------------------------------------------------------------------
 
-BOX_VALUE=0
-BOX_STATUS="${SW_STATUS_UNKNOWN}"
-BOX_EVENTS=()
+AUTOMOVILISMO_VALUE=0
+AUTOMOVILISMO_STATUS="${SW_STATUS_UNKNOWN}"
+AUTOMOVILISMO_EVENTS=()
 
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
 
-BOX_collect() {
+AUTOMOVILISMO_collect() {
 
     local anio mes dia
     local file cached item
@@ -53,13 +56,13 @@ BOX_collect() {
     mes=$(date +%m)
     dia=$(date +%d)
 
-    file="/home/daniel/docker/util/iespien/cache/box_${anio}-${mes}-${dia}.json"
+    file="/home/daniel/docker/util/iespien/cache/automovilismo_en_argentina_${anio}-${mes}-${dia}.json"
 
     [[ -f "$file" ]] || return 1
 
     sw_cache_copy "$file"
 
-    cached=$(sw_cache_file "box_${anio}-${mes}-${dia}.json")
+    cached=$(sw_cache_file "automovilismo_en_argentina_${anio}-${mes}-${dia}.json")
 
     [[ -f "$cached" ]] || return 1
 
@@ -72,7 +75,7 @@ BOX_collect() {
         escenario=$(jq -r '.escenario' <<<"$item")
         canales=$(jq -r '.canales | join(", ")' <<<"$item")
 
-        BOX_EVENTS+=(
+        AUTOMOVILISMO_EVENTS+=(
             "${competicion}|${contrincantes}|${fecha}|${hora}|${escenario}|${canales}"
         )
 
@@ -87,27 +90,27 @@ BOX_collect() {
     ' "$cached"
     )
 
-    #printf '%s\n' "${BOX_EVENTS[@]}"
+    #printf '%s\n' "${AUTOMOVILISMO_EVENTS[@]}"
 
 }
 
-BOX_analyze() {
+AUTOMOVILISMO_analyze() {
 
-    BOX_STATUS="${SW_STATUS_OK}"
+    AUTOMOVILISMO_STATUS="${SW_STATUS_OK}"
 
-    if ((BOX_VALUE >= BOX_CRITICAL)); then
+    if ((AUTOMOVILISMO_VALUE >= AUTOMOVILISMO_CRITICAL)); then
 
-        BOX_STATUS="${SW_STATUS_CRITICAL}"
+        AUTOMOVILISMO_STATUS="${SW_STATUS_CRITICAL}"
 
-    elif ((BOX_VALUE >= BOX_WARNING)); then
+    elif ((AUTOMOVILISMO_VALUE >= AUTOMOVILISMO_WARNING)); then
 
-        BOX_STATUS="${SW_STATUS_WARNING}"
+        AUTOMOVILISMO_STATUS="${SW_STATUS_WARNING}"
 
     fi
 
 }
 
-BOX_update_state() {
+AUTOMOVILISMO_update_state() {
 
     sw_state_set "module_version" "${MODULE_VERSION}"
 
@@ -115,8 +118,8 @@ BOX_update_state() {
     # Module metadata (consumed by lib/html.sh)
     # -------------------------------------------------------------------------
 
-    sw_state_set "module.label" "$(sw_translate "Boxing")"
-    sw_state_set "module.icon" "sports/box"
+    sw_state_set "module.label" "$(sw_translate "Racing")"
+    sw_state_set "module.icon" "sports/racing"
     sw_state_set "module.order" "$MODULE_ORDER"
 
     # -------------------------------------------------------------------------
@@ -130,9 +133,8 @@ BOX_update_state() {
     local competition=1
     local order=10
     local previous="previo"
-    local event
-
-    for data in "${BOX_EVENTS[@]}"; do
+    local evento
+    for data in "${AUTOMOVILISMO_EVENTS[@]}"; do
 
         IFS='|' read -r competicion contrincantes fecha hora escenario canales <<<"$data"
 
@@ -148,39 +150,39 @@ BOX_update_state() {
             sw_state_set "evento${row}-${competition}" "$event"
             sw_state_set "evento${row}-${competition}.label" "$row"
             sw_state_set "evento${row}-${competition}.order" "$order"
+            ((row++))
         else
             sw_state_set "competicion${competition}" "$competicion"
             sw_state_set "competicion${competition}.label" "$(sw_translate "Competition")"
             sw_state_set "competicion${competition}.order" "$order"
             sw_state_set "competicion${competition}.color" "green"
-
+            ((competition++))
             row=1
             previous="$competicion"
             ((order++))
             sw_state_set "evento${row}-${competition}" "$event"
             sw_state_set "evento${row}-${competition}.label" "$row"
             sw_state_set "evento${row}-${competition}.order" "$order"
-            ((competition++))
+            ((row++))
         fi
 
         ((order++))
-        ((row++))
 
     done
 
 }
 
-BOX_report() {
+AUTOMOVILISMO_report() {
 
     sw_log_info \
         "${MODULE_NAME}" \
-        "BOX value: ${BOX_VALUE} (${BOX_STATUS})"
+        "AUTOMOVILISMO value: ${AUTOMOVILISMO_VALUE} (${AUTOMOVILISMO_STATUS})"
 
 }
 
 sw_module_run() {
 
-    sw_state_use "box"
+    sw_state_use "automovilismo"
 
     if [[ -n "$MODULE_REMOTE" ]]; then
         sw_state_remote "$MODULE_REMOTE"
@@ -190,23 +192,23 @@ sw_module_run() {
 
     sw_state_clear
 
-    BOX_collect
+    AUTOMOVILISMO_collect
 
-    BOX_analyze
+    AUTOMOVILISMO_analyze
 
-    sw_status_update "${BOX_STATUS}" || return 1
+    sw_status_update "${AUTOMOVILISMO_STATUS}" || return 1
 
-    BOX_update_state
+    AUTOMOVILISMO_update_state
 
     sw_state_save
 
-    BOX_report
+    AUTOMOVILISMO_report
 
     # Optional: append to CSV history for sparkline widgets.
     #
     # sw_csv_append \
-    #     "BOX" \
+    #     "AUTOMOVILISMO" \
     #     "value" \
-    #     "${BOX_VALUE}"
+    #     "${AUTOMOVILISMO_VALUE}"
 
 }

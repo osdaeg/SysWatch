@@ -25,9 +25,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="SmnAlerts"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="SMN official weather alerts (unofficial API)"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-300}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-1200}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
@@ -251,7 +254,7 @@ smn_alerts_update_state() {
 
         sw_state_delete_key "desc"
 
-        MODULE_INTERVAL=21600
+        MODULE_INTERVAL="$MODULE_INTERVAL_NORMAL"
 
     else
 
@@ -264,7 +267,7 @@ smn_alerts_update_state() {
         local summary
         local description
         local instruction
-        
+
         for headline in "${SMN_ALERT_HEADLINES[@]}"; do
 
             alert="${SMN_BEST_JSON[${headline}]}"
@@ -306,7 +309,7 @@ smn_alerts_update_state() {
         sw_state_set "desc.label" "$(sw_translate "Description")"
         sw_state_set "desc.order" "$order"
 
-        MODULE_INTERVAL=1740
+        MODULE_INTERVAL="$MODULE_INTERVAL_ALT"
 
         WEATHER_RADAR=1
 

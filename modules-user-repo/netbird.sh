@@ -20,9 +20,12 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Netbird"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="NetBird VPN connectivity monitoring"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-420}
+MODULE_INTERVAL_NORMAL=${MODULE_INTERVAL_NORMAL:-}
+MODULE_INTERVAL_ALT=${MODULE_INTERVAL_ALT:-}
 MODULE_ORDER=${MODULE_ORDER:-45}
 MODULE_REMOTE=${MODULE_REMOTE:-""}
 
