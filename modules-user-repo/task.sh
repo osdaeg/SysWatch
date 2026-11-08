@@ -14,6 +14,7 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Tasks"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Task management"
 readonly MODULE_VERSION="0.1.1"
 

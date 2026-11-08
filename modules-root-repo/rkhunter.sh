@@ -20,6 +20,7 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Rkhunter"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="rkhunter log monitoring (does not run scans itself)"
 readonly MODULE_VERSION="0.1.0"
 readonly MODULE_INTERVAL=86400

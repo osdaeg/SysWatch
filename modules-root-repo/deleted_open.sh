@@ -362,23 +362,23 @@ sw_module_run() {
 
     # Diagnostics.
     sw_state_set "stat_errors" "$stat_errors"
-    sw_state_set "stat_errors.label" "Stat errors"
+    sw_state_set "stat_errors.label" "$(sw_translate "Stat errors")"
     sw_state_set "stat_errors.order" "200"
 
     sw_state_set "identity_errors" "$identity_errors"
-    sw_state_set "identity_errors.label" "Identity errors"
+    sw_state_set "identity_errors.label" "$(sw_translate "Identity errors")"
     sw_state_set "identity_errors.order" "210"
 
     sw_state_set "race_skips" "$race_skips"
-    sw_state_set "race_skips.label" "Disappeared descriptors"
+    sw_state_set "race_skips.label" "$(sw_translate "Disappeared descriptors")"
     sw_state_set "race_skips.order" "220"
 
     sw_state_set "warning_errors" "$warning_errors"
-    sw_state_set "warning_errors.label" "Invalidating warnings"
+    sw_state_set "warning_errors.label" "$(sw_translate "Invalidating warnings")"
     sw_state_set "warning_errors.order" "230"
 
     sw_state_set "ignored_warnings" "$ignored_warnings"
-    sw_state_set "ignored_warnings.label" "Ignored warnings"
+    sw_state_set "ignored_warnings.label" "$(sw_translate "Ignored warnings")"
     sw_state_set "ignored_warnings.order" "240"
 
     # -------------------------------------------------------------------------

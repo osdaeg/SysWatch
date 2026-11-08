@@ -24,6 +24,7 @@ SW_STATE_REMOTE_FILE=""
 SW_STATE_REMOTE_DIR=""
 
 SW_STATE_REGISTRY="${CONFIG_DIR}/states.conf"
+SW_STATE_NOT_ORPHANS="${CONFIG_DIR}/not_orphans.conf"
 
 declare -gA SW_STATE
 
@@ -39,6 +40,8 @@ sw_state_registry() {
     # Crear directorio si fuera necesario
     mkdir -p "$(dirname "$SW_STATE_REGISTRY")"
 
+    #> "$SW_STATE_NOT_ORPHANS"
+
     # Crear o registrar el estado
     if ! grep -q "^${state}=" "$SW_STATE_REGISTRY" 2>/dev/null; then
         echo "$line" >> "$SW_STATE_REGISTRY"
@@ -52,6 +55,9 @@ sw_state_purge() {
     local script
     local tmp
 
+    local mtime
+    local expiration
+
     [[ -f "$SW_STATE_REGISTRY" ]] || return 0
 
     tmp="$(mktemp "${SW_STATE_REGISTRY}.XXXXXX")" || return 1
@@ -64,6 +70,21 @@ sw_state_purge() {
             echo "$line" >> "$tmp"
             continue
         }
+
+        if [[ -f "$state" ]]; then
+
+            mtime="$(stat -c %Y "$state")"
+            expiration="$(date -d "$STATE_LIFETIME days ago" +%s)"
+
+            if (( mtime <= expiration )); then
+
+                echo "> Eliminando ${state}. Estado antiguo"
+                rm -f "$state"
+                continue
+            fi
+        fi
+
+        
 
         if [[ -f "$script" ]]; then
 
@@ -278,7 +299,7 @@ sw_state_save() {
     done < <(
         printf '%s\n' "${!SW_STATE[@]}" | sort
     ) >>"${file}"
-
+echo "> registrando $file con modulo $MODULE_NAME"
     sw_state_registry "${file}"
 
     if [ "$SW_STATE_REMOTE" == "true" ]; then

@@ -247,7 +247,7 @@ docker_collect_cpu() {
 
     ((DOCKER_DAEMON_AVAILABLE)) || return 1
 
-        # Inicializar valores individuales.
+    # Inicializar valores individuales.
     # Los contenedores detenidos tienen consumo 0.
     # Los que están ejecutándose esperan su dato de docker stats.
     for ((i = 0; i < ${#DOCKER_KEYS[@]}; i++)); do
@@ -283,7 +283,7 @@ docker_collect_cpu() {
 
         done
 
-    done <<< "${stats}"
+    done <<<"${stats}"
 
     # Sumar el consumo de todos los contenedores en ejecución,
     # incluidos aquellos que no tienen ficha individual.
@@ -301,7 +301,7 @@ docker_collect_cpu() {
             END {
                 printf "%.0f\n", sum
             }
-        ' <<< "${stats}"
+        ' <<<"${stats}"
     )" || return 1
 
     DOCKER_CPU="${total}"
@@ -486,8 +486,6 @@ docker_update_state() {
         sw_state_use "${key}"
         sw_state_load
 
-        sw_status_update "${DOCKER_STATUS[$i]}" "${key}" || continue
-
         sw_state_set "module_version" "${MODULE_VERSION}"
 
         sw_state_set "module.label" "${DOCKER_NAMES[$i]}"
@@ -528,6 +526,8 @@ docker_update_state() {
                 sw_state_set "cpu.scale" "fixed"
                 sw_state_set "cpu.min" "0"
                 sw_state_set "cpu.max" "$cpu_max"
+
+                DOCKER_STATUS[$i]="${SW_STATUS_WARNING}"
             fi
 
         fi
@@ -554,6 +554,8 @@ docker_update_state() {
         sw_state_set "restart_policy.label" "$(sw_translate "Restart policy")"
 
         sw_timer_create "${key}" "5" "deletestate"
+
+        sw_status_update "${DOCKER_STATUS[$i]}" "${key}" || continue
 
         sw_state_save
 

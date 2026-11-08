@@ -78,9 +78,175 @@ NETWORK_LABEL=()
 
 NETWORK_ACTIVE_INTERFACE=""
 
+NETWORK_PREV_RX_ERRORS=()
+NETWORK_PREV_TX_ERRORS=()
+
+NETWORK_IPV6=()
+NETWORK_IPV6_LINK_LOCAL=()
+
+NETWORK_GATEWAY=()
+NETWORK_GATEWAY_IPV6=()
+
+NETWORK_ROUTES=()
+
+NETWORK_DNS=()
+NETWORK_DNS_IPV6=()
+
 # -----------------------------------------------------------------------------
 # Functions
 # -----------------------------------------------------------------------------
+
+network_routes() {
+
+    local iface="$1"
+
+    ip -4 route show dev "${iface}" |
+        awk '$1 != "default" { print $1 }' |
+        paste -sd ","
+}
+
+network_read_gateways() {
+
+    local i
+    local iface
+    local gateway
+
+    NETWORK_GATEWAY=()
+    NETWORK_GATEWAY_IPV6=()
+
+    #
+    # Initialize arrays, preserving interface indexes.
+    #
+
+    for ((i = 0; i < NETWORK_DEVICE_COUNT; i++)); do
+        NETWORK_GATEWAY+=("")
+        NETWORK_GATEWAY_IPV6+=("")
+    done
+
+    #
+    # IPv4 default gateways.
+    #
+
+    while IFS=$'\t' read -r iface gateway; do
+
+        [[ -z "$iface" || -z "$gateway" ]] && continue
+
+        for ((i = 0; i < NETWORK_DEVICE_COUNT; i++)); do
+
+            if [[ "${NETWORK_INTERFACES[$i]}" == "$iface" ]]; then
+
+                if [[ -n "${NETWORK_GATEWAY[$i]}" ]]; then
+                    NETWORK_GATEWAY[$i]+=", "
+                fi
+
+                NETWORK_GATEWAY[$i]+="$gateway"
+
+                break
+
+            fi
+
+        done
+
+    done < <(
+
+        ip -4 route show default |
+            awk '
+                {
+                    iface = ""
+                    gateway = ""
+
+                    for (i = 1; i <= NF; i++) {
+
+                        if ($i == "dev") {
+                            iface = $(i + 1)
+                        }
+
+                        if ($i == "via") {
+                            gateway = $(i + 1)
+                        }
+
+                    }
+
+                    if (iface != "" && gateway != "") {
+                        print iface "\t" gateway
+                    }
+                }
+            '
+
+    )
+
+    #
+    # IPv6 default gateways.
+    #
+
+    while IFS=$'\t' read -r iface gateway; do
+
+        [[ -z "$iface" || -z "$gateway" ]] && continue
+
+        for ((i = 0; i < NETWORK_DEVICE_COUNT; i++)); do
+
+            if [[ "${NETWORK_INTERFACES[$i]}" == "$iface" ]]; then
+
+                if [[ -n "${NETWORK_GATEWAY_IPV6[$i]}" ]]; then
+                    NETWORK_GATEWAY_IPV6[$i]+=", "
+                fi
+
+                NETWORK_GATEWAY_IPV6[$i]+="$gateway"
+
+                break
+
+            fi
+
+        done
+
+    done < <(
+
+        ip -6 route show default |
+            awk '
+                {
+                    iface = ""
+                    gateway = ""
+
+                    for (i = 1; i <= NF; i++) {
+
+                        if ($i == "dev") {
+                            iface = $(i + 1)
+                        }
+
+                        if ($i == "via") {
+                            gateway = $(i + 1)
+                        }
+
+                    }
+
+                    if (iface != "" && gateway != "") {
+                        print iface "\t" gateway
+                    }
+                }
+            '
+
+    )
+
+}
+
+network_read_previous_errors() {
+
+    local i
+
+    NETWORK_PREV_RX_ERRORS=()
+    NETWORK_PREV_TX_ERRORS=()
+
+    for ((i = 0; i < NETWORK_DEVICE_COUNT; i++)); do
+
+        sw_state_use "${NETWORK_INTERFACES[$i]}"
+        sw_state_load
+
+        NETWORK_PREV_RX_ERRORS+=("$(sw_state_get "rx_errors")")
+        NETWORK_PREV_TX_ERRORS+=("$(sw_state_get "tx_errors")")
+
+    done
+
+}
 
 network_sysfs() {
 
@@ -110,6 +276,94 @@ network_ipv4() {
 
 }
 
+network_read_dns() {
+
+    local iface
+    local dns
+    local dns_ipv6
+    local resolv_dns=""
+    local resolv_dns_ipv6=""
+
+    #
+    # Initialize arrays.
+    #
+
+    NETWORK_DNS=()
+    NETWORK_DNS_IPV6=()
+
+    #
+    # nmcli available: read DNS per interface.
+    #
+
+    if command -v nmcli >/dev/null 2>&1; then
+
+        for iface in "${NETWORK_INTERFACES[@]}"; do
+
+            dns="$(
+                nmcli -g IP4.DNS device show "${iface}" 2>/dev/null |
+                    awk 'NF { if (dns != "") dns = dns ", "; dns = dns $0 } END { print dns }'
+            )"
+
+            dns_ipv6="$(
+                nmcli -g IP6.DNS device show "${iface}" 2>/dev/null |
+                    awk 'NF { if (dns != "") dns = dns ", "; dns = dns $0 } END { print dns }'
+            )"
+
+            NETWORK_DNS+=("${dns}")
+            NETWORK_DNS_IPV6+=("${dns_ipv6}")
+
+        done
+
+        return 0
+
+    fi
+
+    #
+    # Fallback: /etc/resolv.conf.
+    #
+
+    if [[ -r /etc/resolv.conf ]]; then
+
+        resolv_dns="$(
+            awk '
+                $1 == "nameserver" && $2 !~ /:/ {
+                    if (dns != "") dns = dns ", "
+                    dns = dns $2
+                }
+                END { print dns }
+            ' /etc/resolv.conf
+        )"
+
+        resolv_dns_ipv6="$(
+            awk '
+                $1 == "nameserver" && $2 ~ /:/ {
+                    if (dns != "") dns = dns ", "
+                    dns = dns $2
+                }
+                END { print dns }
+            ' /etc/resolv.conf
+        )"
+
+    fi
+
+    #
+    # Assign global DNS only to active interface.
+    #
+
+    for iface in "${NETWORK_INTERFACES[@]}"; do
+
+        if [[ "${iface}" == "${NETWORK_ACTIVE_INTERFACE}" ]]; then
+            NETWORK_DNS+=("${resolv_dns}")
+            NETWORK_DNS_IPV6+=("${resolv_dns_ipv6}")
+        else
+            NETWORK_DNS+=("")
+            NETWORK_DNS_IPV6+=("")
+        fi
+
+    done
+
+}
+
 network_detect_active_interface() {
 
     NETWORK_ACTIVE_INTERFACE=""
@@ -132,9 +386,21 @@ network_detect_active_interface() {
 
 network_discover_interfaces() {
 
+    local output
+
+    #
+    # Capture command output and verify its exit status.
+    #
+
+    output=$(ip -o link show) || return 1
+
+    #
+    # Filter recognized interfaces.
+    #
+
     mapfile -t NETWORK_INTERFACES < <(
 
-        ip -o link show |
+        printf '%s\n' "$output" |
             awk -F': ' '
 
             {
@@ -152,6 +418,8 @@ network_discover_interfaces() {
     )
 
     NETWORK_DEVICE_COUNT="${#NETWORK_INTERFACES[@]}"
+
+    return 0
 
 }
 
@@ -183,6 +451,11 @@ network_read_interfaces() {
 
     NETWORK_MTU=()
 
+    NETWORK_IPV6=()
+    NETWORK_IPV6_LINK_LOCAL=()
+
+    NETWORK_ROUTES=()
+
     for iface in "${NETWORK_INTERFACES[@]}"; do
 
         #
@@ -203,6 +476,20 @@ network_read_interfaces() {
             ip -4 -o addr show dev "${iface}" |
                 awk '{print $4}' |
                 cut -d/ -f1
+        )")
+
+        NETWORK_IPV6+=("$(
+            ip -6 -o addr show dev "${iface}" scope global |
+                awk '{print $4}' |
+                cut -d/ -f1 |
+                paste -sd ', ' -
+        )")
+
+        NETWORK_IPV6_LINK_LOCAL+=("$(
+            ip -6 -o addr show dev "${iface}" scope link |
+                awk '{print $4}' |
+                cut -d/ -f1 |
+                paste -sd ', ' -
         )")
 
         #
@@ -256,6 +543,8 @@ network_read_interfaces() {
         NETWORK_TX_ERRORS+=("$(
             cat "/sys/class/net/${iface}/statistics/tx_errors"
         )")
+
+        NETWORK_ROUTES+=("$(network_routes "${iface}")")
 
     done
 
@@ -322,11 +611,86 @@ network_collect() {
 
     sw_require_command ip || return 127
 
-    network_discover_interfaces
+    #
+    # Discover interfaces.
+    #
+
+    if ! network_discover_interfaces; then
+
+        sw_log_error \
+            "Network" \
+            "Failed to discover network interfaces (ip -o link show)"
+
+        sw_state_use "$MODULE_NAME"
+        sw_state_load
+
+        sw_state_set "module_version" "${MODULE_VERSION}"
+
+        sw_state_set "module.label" "$(sw_translate "Network")"
+
+        sw_state_set "module.icon" "lucide/wifi-off"
+        sw_state_set "module.order" "$MODULE_ORDER"
+
+        sw_state_set "info" "$(sw_translate "Failed to discover network interfaces (ip -o link show)")"
+        sw_state_set "info.label" "$(sw_translate "Information:")"
+
+        sw_status_update "${SW_STATUS_UNKNOWN}" || return 1
+        sw_state_save
+
+        return 1
+
+    fi
+
+    #
+    # No recognized interfaces.
+    #
+
+    if ((NETWORK_DEVICE_COUNT == 0)); then
+
+        sw_log_warning \
+            "Network" \
+            "No recognized network interfaces detected"
+
+        sw_state_use "$MODULE_NAME"
+        sw_state_load
+
+        sw_state_set "module_version" "${MODULE_VERSION}"
+
+        sw_state_set "module.label" "$(sw_translate "Network")"
+
+        sw_state_set "module.icon" "lucide/wifi-off"
+        sw_state_set "module.order" "$MODULE_ORDER"
+
+        sw_state_set "info" "$(sw_translate "No recognized network interfaces detected")"
+        sw_state_set "info.label" "$(sw_translate "Information:")"
+
+        sw_status_update "${SW_STATUS_UNKNOWN}" || return 1
+        sw_state_save
+
+        return 1
+
+    fi
+
+    #
+    # Interfaces detected: remove previous global state.
+    #
+
+    sw_state_use "$MODULE_NAME"
+    sw_state_delete
+
+    #
+    # Continue normal collection.
+    #
 
     network_read_interfaces
 
     network_detect_active_interface
+
+    network_read_previous_errors
+
+    network_read_gateways
+
+    network_read_dns
 
 }
 
@@ -381,38 +745,53 @@ network_analyze() {
 
         #
         # Link speed
+        # P0.2: evaluate only valid positive integer values.
         #
 
-        if [[ -n "${NETWORK_SPEED[$i]}" ]]; then
+        if [[ "${NETWORK_SPEED[$i]}" =~ ^[0-9]+$ ]] &&
+            ((10#${NETWORK_SPEED[$i]} > 0)); then
 
-            if ((NETWORK_SPEED[$i] < 100)) &&
+            if ((10#${NETWORK_SPEED[$i]} < 100)) &&
                 [[ "${NETWORK_STATUS[$i]}" == "${SW_STATUS_OK}" ]]; then
 
                 NETWORK_STATUS[$i]="${SW_STATUS_WARNING}"
+
+            fi
+        fi
+
+        #
+        # RX errors
+        # P0.4: detect new errors, ignoring historical counters.
+        #
+
+        if [[ "${NETWORK_PREV_RX_ERRORS[$i]}" =~ ^[0-9]+$ ]] &&
+            [[ "${NETWORK_RX_ERRORS[$i]}" =~ ^[0-9]+$ ]]; then
+
+            if ((NETWORK_RX_ERRORS[$i] > NETWORK_PREV_RX_ERRORS[$i])); then
+
+                if [[ "${NETWORK_STATUS[$i]}" == "${SW_STATUS_OK}" ]]; then
+                    NETWORK_STATUS[$i]="${SW_STATUS_WARNING}"
+                fi
 
             fi
 
         fi
 
         #
-        # RX errors
-        #
-
-        if [[ -n "${NETWORK_RX_ERRORS[$i]}" ]] &&
-            ((NETWORK_RX_ERRORS[$i] > 0)); then
-
-            NETWORK_STATUS[$i]="${SW_STATUS_WARNING}"
-
-        fi
-
-        #
         # TX errors
+        # P0.4: detect new errors, ignoring historical counters.
         #
 
-        if [[ -n "${NETWORK_TX_ERRORS[$i]}" ]] &&
-            ((NETWORK_TX_ERRORS[$i] > 0)); then
+        if [[ "${NETWORK_PREV_TX_ERRORS[$i]}" =~ ^[0-9]+$ ]] &&
+            [[ "${NETWORK_TX_ERRORS[$i]}" =~ ^[0-9]+$ ]]; then
 
-            NETWORK_STATUS[$i]="${SW_STATUS_WARNING}"
+            if ((NETWORK_TX_ERRORS[$i] > NETWORK_PREV_TX_ERRORS[$i])); then
+
+                if [[ "${NETWORK_STATUS[$i]}" == "${SW_STATUS_OK}" ]]; then
+                    NETWORK_STATUS[$i]="${SW_STATUS_WARNING}"
+                fi
+
+            fi
 
         fi
 
@@ -445,6 +824,9 @@ network_update_state() {
     local now
     local peak_rx
     local peak_tx
+    local icon
+
+    local show
 
     now=$(date +%s)
 
@@ -468,7 +850,20 @@ network_update_state() {
         sw_state_set "module_version" "${MODULE_VERSION}"
 
         sw_state_set "module.label" "$(sw_translate "${NETWORK_LABEL[$i]}")"
-        sw_state_set "module.icon" "lucide/network"
+
+        case "${NETWORK_INTERFACES[$i]}" in
+        en* | eth*)
+            icon="lucide/ethernet-port"
+            ;;
+        wl* | wlan*)
+            icon="lucide/wifi"
+            ;;
+        *)
+            icon="lucide/network"
+            ;;
+        esac
+
+        sw_state_set "module.icon" "$icon"
         sw_state_set "module.order" "$MODULE_ORDER"
 
         #
@@ -488,6 +883,12 @@ network_update_state() {
 
         sw_state_set "ip" "${NETWORK_IP[$i]}"
         sw_state_set "ip.label" "$(sw_translate "IPv4")"
+
+        sw_state_set "ipv6" "${NETWORK_IPV6[$i]}"
+        sw_state_set "ipv6.label" "$(sw_translate "IPv6")"
+
+        sw_state_set "ipv6_link_local" "${NETWORK_IPV6_LINK_LOCAL[$i]}"
+        sw_state_set "ipv6_link_local.label" "$(sw_translate "IPv6 link-local")"
 
         #
         # ---------------------------------------------------------------------
@@ -562,6 +963,35 @@ network_update_state() {
         sw_state_set "tx_errors.hidden" "true"
 
         #
+        # Gateways
+        #
+
+        if [[ -n "${NETWORK_GATEWAY[$i]}" ]]; then
+
+            sw_state_set "gateway" "${NETWORK_GATEWAY[$i]}"
+            sw_state_set "gateway.label" "$(sw_translate "Gateway")"
+
+        else
+
+            sw_state_delete_key "gateway"
+
+        fi
+
+        if [[ -n "${NETWORK_GATEWAY_IPV6[$i]}" ]]; then
+
+            sw_state_set "gateway_ipv6" "${NETWORK_GATEWAY_IPV6[$i]}"
+            sw_state_set "gateway_ipv6.label" "$(sw_translate "IPv6 Gateway")"
+
+        else
+
+            sw_state_delete_key "gateway_ipv6"
+
+        fi
+
+        sw_state_set "routes" "${NETWORK_ROUTES[$i]}"
+        sw_state_set "routes.label" "$(sw_translate "Routes")"
+
+        #
         # ---------------------------------------------------------------------
         # Status
         # ---------------------------------------------------------------------
@@ -612,6 +1042,47 @@ network_update_state() {
         sw_state_set "_internal.prev_rx" "${NETWORK_RX_BYTES[$i]}"
         sw_state_set "_internal.prev_tx" "${NETWORK_TX_BYTES[$i]}"
         sw_state_set "_internal.prev_time" "${now}"
+
+        if [[ -n "${NETWORK_DNS[$i]}" ]]; then
+            sw_state_set "dns" "${NETWORK_DNS[$i]}"
+            sw_state_set "dns.label" "$(sw_translate "DNS")"
+        else
+            sw_state_delete_key "dns"
+        fi
+
+        if [[ -n "${NETWORK_DNS_IPV6[$i]}" ]]; then
+            sw_state_set "dns_ipv6" "${NETWORK_DNS_IPV6[$i]}"
+            sw_state_set "dns_ipv6.label" "$(sw_translate "IPv6 DNS")"
+        else
+            sw_state_delete_key "dns_ipv6"
+        fi
+
+        show="$(sw_state_get "show")"
+
+        [[ -z "$show" ]] && show=1
+
+        if (( show == 4 )); then
+            show=1
+            sw_state_set "dns.hidden" "false"
+            sw_state_set "dns_ipv6.hidden" "false"
+            sw_state_set "routes.hidden" "false"
+            sw_state_set "gateway.hidden" "false"
+            sw_state_set "gateway_ipv6.hidden" "false"
+            sw_state_set "speed.hidden" "false"
+
+            #sw_state_set "status" "${SW_STATUS_INFO}"
+        else    
+            ((show++))
+            sw_state_set "dns.hidden" "true"
+            sw_state_set "dns_ipv6.hidden" "true"
+            sw_state_set "routes.hidden" "true"
+            sw_state_set "gateway.hidden" "true"
+            sw_state_set "gateway_ipv6.hidden" "true"
+            sw_state_set "speed.hidden" "true"
+        fi    
+
+        sw_state_set "show" "$show"
+        sw_state_set "show.hidden" "true"
 
         sw_state_save
 

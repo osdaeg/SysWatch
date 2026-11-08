@@ -24,6 +24,7 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Dvr"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Hikvision DVR camera snapshot monitoring"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-120}

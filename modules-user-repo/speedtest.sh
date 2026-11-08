@@ -24,6 +24,7 @@
 # -----------------------------------------------------------------------------
 
 readonly MODULE_NAME="Speedtest"
+readonly MODULE_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 readonly MODULE_DESCRIPTION="Internet speed monitoring (Ookla speedtest CLI)"
 readonly MODULE_VERSION="0.1.0"
 MODULE_INTERVAL=${MODULE_INTERVAL:-120}

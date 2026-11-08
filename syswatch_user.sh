@@ -11,7 +11,6 @@ set -o nounset
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly LAUNCHER_NAME="User Launcher"
 
-
 # -----------------------------------------------------------------------------
 # Load libraries
 # -----------------------------------------------------------------------------
@@ -52,15 +51,15 @@ main() {
         "$HTML_DIR" \
         "$REMOTE_DIR" \
         "$TRANSLATIONS_DIR"
-        
-    sw_create_remote_dirs    
+
+    sw_create_remote_dirs
 
     sw_translations_load
 
     sw_lock_acquire "syswatch_user"
 
     sw_log_rename
-    
+
     sw_log_execution
 
     sw_log_info "${LAUNCHER_NAME}" "SysWatch started"
@@ -84,6 +83,8 @@ main() {
     sw_translations_save
 
     sw_log_info "${LAUNCHER_NAME}" "SysWatch finished"
+
+    echo "Todo finalizado"
 
 }
 
