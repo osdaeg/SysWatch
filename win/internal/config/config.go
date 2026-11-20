@@ -21,6 +21,7 @@ const (
 type Module struct {
 	Enabled          bool `json:"enabled"`
 	IntervalS        int  `json:"interval_s"`
+	Order            int  `json:"order,omitempty"` // module.order override (0 = default)
 	CSVPoints        int  `json:"csv_points,omitempty"`
 	TopProcesses     bool `json:"top_processes,omitempty"`
 	IncludeRemovable bool `json:"include_removable,omitempty"`

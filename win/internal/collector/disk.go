@@ -83,7 +83,7 @@ func (d *Disk) Collect(ctx context.Context) (Result, error) {
 		if label == "" {
 			label = v.Mount
 		}
-		st := e.newState("lucide/hard-drive", label, OrderDisk)
+		st := e.newState("lucide/hard-drive", label, e.order(OrderDisk))
 		st.Set("_internal.mountpoint", v.Mount)
 		st.AddField(state.Field{Key: "fstype", Value: v.Fstype, Label: e.T("Type"), Order: 10})
 		bytes := func(key, lbl string, order int, n uint64) {

@@ -4,4 +4,6 @@ package collector
 
 import "context"
 
-func listAdapters(ctx context.Context) map[string]adapterInfo { return heuristicAdapters(ctx) }
+func listAdapters(ctx context.Context) (map[string]adapterInfo, string) {
+	return heuristicAdapters(ctx), "interfaces only (not Windows)"
+}

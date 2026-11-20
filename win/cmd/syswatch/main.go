@@ -18,7 +18,7 @@ import (
 )
 
 // version is overridden at build time with -ldflags "-X main.version=...".
-var version = "0.1.0"
+var version = "0.1.2"
 
 func main() {
 	cfgFlag := flag.String("config", "", "path to config.json (default: %APPDATA%\\syswatch-win\\config.json)")

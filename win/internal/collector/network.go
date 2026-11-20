@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -19,15 +20,17 @@ type netSample struct {
 
 // Network produces one state per adapter plus an optional aggregate.
 type Network struct {
-	env   *Env
-	mu    sync.Mutex
-	prev  map[string]netSample
-	known map[string]bool
+	env    *Env
+	mu     sync.Mutex
+	prev   map[string]netSample
+	known  map[string]bool
+	logged map[string]string
+	diag   string
 }
 
 // NewNetwork creates the network collector.
 func NewNetwork(env *Env) *Network {
-	return &Network{env: env, prev: map[string]netSample{}, known: map[string]bool{}}
+	return &Network{env: env, prev: map[string]netSample{}, known: map[string]bool{}, logged: map[string]string{}}
 }
 
 func (n *Network) Name() string { return "network" }
@@ -58,7 +61,8 @@ func (n *Network) Collect(ctx context.Context) (Result, error) {
 			ips[i.Name] = ipv4Of(i)
 		}
 	}
-	infos := listAdapters(ctx)
+	infos, diag := listAdapters(ctx)
+	ssids := wlanSSIDs()
 	names := make([]string, 0, len(infos))
 	for name := range infos {
 		names = append(names, name)
@@ -68,6 +72,10 @@ func (n *Network) Collect(ctx context.Context) (Result, error) {
 	now := e.Now()
 	n.mu.Lock()
 	defer n.mu.Unlock()
+	if diag != n.diag {
+		n.diag = diag
+		e.logf("network: adapter source: %s", diag)
+	}
 
 	var res Result
 	seen := map[string]bool{}
@@ -77,6 +85,11 @@ func (n *Network) Collect(ctx context.Context) (Result, error) {
 
 	for _, name := range names {
 		info := infos[name]
+		decision := fmt.Sprintf("physical=%v connected=%v counters=%v (%s)", info.Physical, info.Connected, hasCounters(byName, name), info.Note)
+		if n.logged[name] != decision {
+			n.logged[name] = decision
+			e.logf("network adapter %q: %s", name, decision)
+		}
 		if !info.Physical && !e.Mod.IncludeVirtual {
 			continue
 		}
@@ -86,7 +99,7 @@ func (n *Network) Collect(ctx context.Context) (Result, error) {
 		}
 		seen[stateName] = true
 
-		st := e.newState("lucide/network", name, OrderNetwork)
+		st := e.newState("lucide/network", name, e.order(OrderNetwork))
 		c, haveCounters := byName[name]
 		var totRx, totTx uint64
 		if haveCounters {
@@ -116,6 +129,9 @@ func (n *Network) Collect(ctx context.Context) (Result, error) {
 		if ip := ips[name]; ip != "" {
 			st.AddField(state.Field{Key: "ip", Value: ip, Label: e.T("IP address"), Order: 30})
 		}
+		if ssid := ssids[info.Description]; ssid != "" && info.Description != "" {
+			st.AddField(state.Field{Key: "ssid", Value: ssid, Label: e.T("SSID"), Order: 25})
+		}
 		if mbps := info.SpeedBps / 1_000_000; mbps > 0 && mbps < 1_000_000 {
 			st.AddField(state.Field{Key: "link_speed", Value: itoa(int64(mbps)), Label: e.T("Link speed"), Order: 40, Unit: "Mbps"})
 		}
@@ -126,7 +142,7 @@ func (n *Network) Collect(ctx context.Context) (Result, error) {
 	}
 
 	if e.Mod.IncludeTotal && len(seen) > 0 {
-		st := e.newState("lucide/network", e.T("All adapters"), OrderNetTot)
+		st := e.newState("lucide/network", e.T("All adapters"), e.order(OrderNetwork)+5)
 		out := writer.Output{Name: "network_total", State: st, IntervalS: e.Mod.IntervalS, CSVPoints: e.Mod.CSVPoints}
 		if anyConnected {
 			addNetLines(e, st, sumDown, sumUp)
@@ -160,4 +176,9 @@ func addNetTotals(e *Env, st *state.State, rx, tx uint64, have bool) {
 	}
 	st.AddField(state.Field{Key: "down_total", Value: itoa(int64(rx)), Label: e.T("Downloaded total"), Order: 50, Render: "bytes"})
 	st.AddField(state.Field{Key: "up_total", Value: itoa(int64(tx)), Label: e.T("Uploaded total"), Order: 60, Render: "bytes"})
+}
+
+func hasCounters(m map[string]net.IOCountersStat, name string) bool {
+	_, ok := m[name]
+	return ok
 }

@@ -98,6 +98,83 @@ sw_country_flag() {
     printf '%s' "${SW_COUNTRY_FLAGS[$country]:-}"
 }
 
+sw_file_rotate() {
+
+    local source=$1
+    local dir=$2
+    local name=$3
+    local ext=$4
+    local total=$5
+    local fill=$6
+    local order=$7
+
+    local i
+    local from to
+    local num_from num_to
+
+    case "$order" in
+
+        oldest_first)
+            # archivo01 = más viejo
+            # archivo$total = más nuevo
+            for ((i = 2; i <= total; i++)); do
+
+                from=$i
+                to=$((i - 1))
+
+                num_from=$from
+                num_to=$to
+
+                if [[ $fill == "fill" ]]; then
+                    printf -v num_from "%02d" "$from"
+                    printf -v num_to "%02d" "$to"
+                fi
+
+                [[ -f "${dir}/${name}${num_from}.${ext}" ]] &&
+                    mv "${dir}/${name}${num_from}.${ext}" \
+                       "${dir}/${name}${num_to}.${ext}"
+            done
+
+            num_to=$total
+            ;;
+
+        newest_first)
+            # archivo01 = más nuevo
+            # archivo$total = más viejo
+            for ((i = total - 1; i >= 1; i--)); do
+
+                from=$i
+                to=$((i + 1))
+
+                num_from=$from
+                num_to=$to
+
+                if [[ $fill == "fill" ]]; then
+                    printf -v num_from "%02d" "$from"
+                    printf -v num_to "%02d" "$to"
+                fi
+
+                [[ -f "${dir}/${name}${num_from}.${ext}" ]] &&
+                    mv "${dir}/${name}${num_from}.${ext}" \
+                       "${dir}/${name}${num_to}.${ext}"
+            done
+
+            num_to=1
+            ;;
+
+        *)
+            return 1
+            ;;
+
+    esac
+
+    if [[ $fill == "fill" ]]; then
+        printf -v num_to "%02d" "$num_to"
+    fi
+
+    cp "$source" "${dir}/${name}${num_to}.${ext}"
+}
+
 sw_zodiac_emoji() {
 
     declare -A zodiaco

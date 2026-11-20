@@ -9,10 +9,12 @@ import (
 
 // adapterInfo is what we know about a network adapter beyond its counters.
 type adapterInfo struct {
-	Name      string
-	Physical  bool
-	Connected bool
-	SpeedBps  uint64
+	Name        string
+	Description string // driver description, e.g. "Realtek PCIe GbE Family Controller"
+	Physical    bool
+	Connected   bool
+	SpeedBps    uint64
+	Note        string // why Connected/Physical were decided (goes to the log)
 }
 
 var virtualHints = []string{
@@ -31,8 +33,15 @@ func looksVirtual(name string) bool {
 	return false
 }
 
+// decideConnected combines every available signal: an adapter counts as
+// connected if WMI says so in any of its fields, or if the OS interface list
+// shows it up with a usable IPv4 address.
+func decideConnected(status string, operStatus, mediaState uint32, hasIPv4Up bool) bool {
+	return status == "Up" || operStatus == 1 || mediaState == 1 || hasIPv4Up
+}
+
 // heuristicAdapters builds adapter info from interface flags and names only;
-// used on non-Windows hosts and as a fallback when WMI is unavailable.
+// used on non-Windows hosts and to complement WMI.
 func heuristicAdapters(ctx context.Context) map[string]adapterInfo {
 	out := map[string]adapterInfo{}
 	ifs, err := net.InterfacesWithContext(ctx)
@@ -44,10 +53,13 @@ func heuristicAdapters(ctx context.Context) map[string]adapterInfo {
 		if strings.Contains(flags, "loopback") {
 			continue
 		}
+		ip := ipv4Of(i)
+		up := strings.Contains(flags, "up") && ip != ""
 		out[i.Name] = adapterInfo{
 			Name:      i.Name,
 			Physical:  !looksVirtual(i.Name),
-			Connected: strings.Contains(flags, "up") && ipv4Of(i) != "",
+			Connected: up,
+			Note:      "interfaces: flags=" + flags + " ipv4=" + ip,
 		}
 	}
 	return out
@@ -65,4 +77,12 @@ func ipv4Of(i net.InterfaceStat) string {
 		}
 	}
 	return ""
+}
+
+// trimBuild turns "10.0.19045.6466 Build 19045.6466" into "10.0.19045.6466".
+func trimBuild(v string) string {
+	if i := strings.Index(v, " Build "); i > 0 {
+		return strings.TrimSpace(v[:i])
+	}
+	return strings.TrimSpace(v)
 }

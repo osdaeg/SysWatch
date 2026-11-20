@@ -16,7 +16,7 @@ import (
 )
 
 // Version is written to module_version in every state.
-const Version = "0.1.0"
+const Version = "0.1.2"
 
 // Default module.order values (cpu 30, memory 40 and disk 60 come from the
 // Linux modules; the others still have to be matched against Linux).
@@ -40,12 +40,28 @@ const (
 
 // Env is what every collector needs; it is rebuilt when the settings change.
 type Env struct {
+	Ctx   context.Context // cancelled when the settings change; nil in tests
 	Cfg   *config.Config
 	Mod   *config.Module
 	Host  string // host name as shown in sw_hostname
 	T     func(string) string
 	Store *store.Store
 	Now   func() time.Time
+	Logf  func(format string, args ...any) // optional diagnostics
+}
+
+// order returns the configured module.order or the default.
+func (e *Env) order(def int) int {
+	if e.Mod != nil && e.Mod.Order > 0 {
+		return e.Mod.Order
+	}
+	return def
+}
+
+func (e *Env) logf(format string, args ...any) {
+	if e.Logf != nil {
+		e.Logf(format, args...)
+	}
 }
 
 // Meta identifies a module in a fallback (UNKNOWN) state.
@@ -93,7 +109,7 @@ func (e *Env) setStatus(st *state.State, name, status string) {
 
 // Fallback builds the minimal UNKNOWN state used when a collector fails.
 func (e *Env) Fallback(name string, m Meta) writer.Output {
-	st := e.newState(m.Icon, e.T(m.Label), m.Order)
+	st := e.newState(m.Icon, e.T(m.Label), e.order(m.Order))
 	e.setStatus(st, name, state.Unknown)
 	return writer.Output{Name: name, State: st, IntervalS: e.Mod.IntervalS}
 }

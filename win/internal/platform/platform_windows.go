@@ -3,9 +3,6 @@
 package platform
 
 import (
-	"os/exec"
-	"syscall"
-
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
@@ -26,11 +23,18 @@ func SingleInstance(name string) (release func(), ok bool) {
 	return func() { windows.CloseHandle(h) }, true
 }
 
-// Open opens a file or folder with its default handler.
+// Open opens a file or folder with its default handler through the shell API
+// (no child process is started by this program).
 func Open(path string) error {
-	cmd := exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", path)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	return cmd.Start()
+	verb, err := windows.UTF16PtrFromString("open")
+	if err != nil {
+		return err
+	}
+	file, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return err
+	}
+	return windows.ShellExecute(0, verb, file, nil, nil, windows.SW_SHOWNORMAL)
 }
 
 // Autostart reports whether the Run key entry exists.

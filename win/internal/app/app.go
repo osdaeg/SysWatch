@@ -191,7 +191,7 @@ func (a *App) apply(cfg *config.Config) {
 		if !mod.Enabled {
 			continue
 		}
-		env := &collector.Env{Cfg: cfg, Mod: mod, Host: host, T: a.tr.T, Store: a.st, Now: time.Now}
+		env := &collector.Env{Ctx: ctx, Cfg: cfg, Mod: mod, Host: host, T: a.tr.T, Store: a.st, Now: time.Now, Logf: a.log.Printf}
 		col := collector.New(name, env)
 		if col == nil {
 			continue

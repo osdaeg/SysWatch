@@ -37,7 +37,7 @@ func (m *Memory) Collect(ctx context.Context) (Result, error) {
 	used := vm.Total - vm.Available
 	usage := clampPct(float64(used) * 100 / float64(vm.Total))
 
-	st := e.newState("lucide/memory", e.T("Memory"), OrderMemory)
+	st := e.newState("lucide/memory", e.T("Memory"), e.order(OrderMemory))
 	st.AddField(state.Field{Key: "usage", Value: itoa(usage), Label: e.T("Used"), Order: 10, Unit: "%",
 		Widget: "gauge", Warning: state.Num(memWarn), Critical: state.Num(memCrit)})
 	mb := func(key, label string, order int, bytes uint64) {
@@ -60,8 +60,7 @@ func (m *Memory) Collect(ctx context.Context) (Result, error) {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		if status != state.OK {
-			card := e.buildTopCard("memory_top", rankByName(memoryRows(ctx), TopN), "Mb", status,
-				func(v float64) string { return itoa(int64(v + 0.5)) })
+			card := e.buildTopCard("memory_top", "Processes (memory)", 50, rankByName(memoryRows(ctx, vm.Total), TopN), status)
 			res.Outputs = append(res.Outputs, card)
 			m.topActive = true
 		} else if m.topActive {

@@ -44,7 +44,7 @@ sw_state_registry() {
 
     # Crear o registrar el estado
     if ! grep -q "^${state}=" "$SW_STATE_REGISTRY" 2>/dev/null; then
-        echo "$line" >> "$SW_STATE_REGISTRY"
+        echo "$line" >>"$SW_STATE_REGISTRY"
     fi
 
 }
@@ -64,10 +64,10 @@ sw_state_purge() {
 
     while IFS= read -r line; do
 
-        IFS="=" read -r state script <<< "$line"
+        IFS="=" read -r state script <<<"$line"
 
         [[ -z "$state" || "$state" =~ ^# ]] && {
-            echo "$line" >> "$tmp"
+            echo "$line" >>"$tmp"
             continue
         }
 
@@ -76,7 +76,7 @@ sw_state_purge() {
             mtime="$(stat -c %Y "$state")"
             expiration="$(date -d "$STATE_LIFETIME days ago" +%s)"
 
-            if (( mtime <= expiration )); then
+            if ((mtime <= expiration)); then
 
                 echo "> Eliminando ${state}. Estado antiguo"
                 rm -f "$state"
@@ -84,11 +84,9 @@ sw_state_purge() {
             fi
         fi
 
-        
-
         if [[ -f "$script" ]]; then
 
-            echo "${state}=${script}" >> "$tmp"
+            echo "${state}=${script}" >>"$tmp"
 
             #echo "$script existe" >> ~/scripts/syswatch/purge.txt
 
@@ -100,7 +98,7 @@ sw_state_purge() {
 
         fi
 
-    done < "$SW_STATE_REGISTRY"
+    done <"$SW_STATE_REGISTRY"
 
     mv "$tmp" "$SW_STATE_REGISTRY"
 
@@ -299,7 +297,7 @@ sw_state_save() {
     done < <(
         printf '%s\n' "${!SW_STATE[@]}" | sort
     ) >>"${file}"
-echo "> registrando $file con modulo $MODULE_NAME"
+    echo "> registrando $file con modulo $MODULE_NAME"
     sw_state_registry "${file}"
 
     if [ "$SW_STATE_REMOTE" == "true" ]; then

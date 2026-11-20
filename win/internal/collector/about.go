@@ -19,11 +19,11 @@ type About struct{ env *Env }
 func NewAbout(env *Env) *About { return &About{env: env} }
 
 func (a *About) Name() string { return "about" }
-func (a *About) Meta() Meta   { return Meta{Icon: "lucide/info", Label: "About", Order: OrderAbout} }
+func (a *About) Meta() Meta   { return Meta{Icon: "lucide/grid-2x2", Label: "About", Order: OrderAbout} }
 
 func (a *About) Collect(ctx context.Context) (Result, error) {
 	e := a.env
-	st := e.newState("lucide/info", e.T("About"), OrderAbout)
+	st := e.newState("lucide/grid-2x2", e.T("About"), e.order(OrderAbout))
 	add := func(key, label string, order int, value, unit string) {
 		if strings.TrimSpace(value) == "" {
 			return
@@ -32,7 +32,7 @@ func (a *About) Collect(ctx context.Context) (Result, error) {
 	}
 	if hi, err := host.InfoWithContext(ctx); err == nil && hi != nil {
 		add("os", "Operating system", 10, hi.Platform, "")
-		add("version", "Version", 20, hi.PlatformVersion, "")
+		add("version", "Version", 20, trimBuild(hi.PlatformVersion), "")
 		add("arch", "Architecture", 30, hi.KernelArch, "")
 	}
 	if ci, err := cpu.InfoWithContext(ctx); err == nil && len(ci) > 0 {

@@ -139,10 +139,13 @@ func TestAboutState(t *testing.T) {
 }
 
 func TestRankByNameAndKeys(t *testing.T) {
-	rows := []procRow{{"chrome", 1.5}, {"chrome", 2.0}, {"bash", 3.0}, {"idle", 0}, {"a", 0.1}}
+	rows := []procRow{{"chrome", 10, 1.5}, {"chrome", 11, 2.0}, {"bash", 20, 3.0}, {"idle", 1, 0}, {"a", 2, 0.1}}
 	top := rankByName(rows, 2)
-	if len(top) != 2 || top[0].Name != "chrome" || top[0].Value != 3.5 || top[1].Name != "bash" {
+	if len(top) != 2 || top[0].Name != "chrome" || top[0].Value != 3.5 || top[0].N != 2 || top[0].PID != 11 || top[1].Name != "bash" {
 		t.Errorf("rank = %+v", top)
+	}
+	if procLabel(top[0]) != "chrome (×2)" || procLabel(top[1]) != "bash (20)" {
+		t.Errorf("labels: %q %q", procLabel(top[0]), procLabel(top[1]))
 	}
 	if processKey("Microsoft Edge") != "Microsoft_Edge" || trimExe("Code.EXE") != "Code" || trimExe("openvpn2.5") != "openvpn2.5" {
 		t.Errorf("name helpers wrong")
@@ -150,15 +153,20 @@ func TestRankByNameAndKeys(t *testing.T) {
 }
 
 func TestTopCardFormatMatchesLinux(t *testing.T) {
-	env := testEnv(t, "cpu")
-	rows := []procRow{{"bash", 1.8}, {"openvpn2.5", 1.6}}
-	o := env.buildTopCard("cpu_top", rows, "%", state.Warning, func(v float64) string { return sprintf1(v) })
+	env := testEnv(t, "memory")
+	rows := []rankedProc{{"stress-ng-vm", 3872810, 1, 26.6}, {"Sonarr", 50073, 1, 2.1}, {"chrome", 5, 12, 1.2}}
+	o := env.buildTopCard("memory_top", "Processes (memory)", 50, rows, state.Warning)
 	st := o.State
-	if get(t, st, "bash") != "1.8" || get(t, st, "bash.order") != "70" || get(t, st, "openvpn2.5.order") != "80" || get(t, st, "bash.unit") != "%" {
+	if get(t, st, "stress-ng-vm") != "26.6" || get(t, st, "stress-ng-vm.label") != "stress-ng-vm (3872810)" ||
+		get(t, st, "stress-ng-vm.order") != "50" || get(t, st, "Sonarr.order") != "60" || get(t, st, "stress-ng-vm.unit") != "%" {
 		t.Errorf("top card keys wrong:\n%s", st.Bytes())
 	}
-	if get(t, st, "module.order") != "900" || get(t, st, "module.icon") != "lucide/rows-4" || get(t, st, "status") != "WARNING" {
-		t.Errorf("top module keys wrong")
+	if get(t, st, "chrome.label") != "chrome (×12)" {
+		t.Errorf("grouped label wrong")
+	}
+	if get(t, st, "module.label") != "Procesos en memoria" || get(t, st, "module.order") != "900" ||
+		get(t, st, "module.icon") != "lucide/rows-4" || get(t, st, "status") != "WARNING" {
+		t.Errorf("top module keys wrong:\n%s", st.Bytes())
 	}
 	if _, ok := st.Get("timestamp"); ok {
 		t.Errorf("top card must not have timestamp")
@@ -168,5 +176,56 @@ func TestTopCardFormatMatchesLinux(t *testing.T) {
 	}
 	if o.TimerTotal != 2 {
 		t.Errorf("timer total = %d", o.TimerTotal)
+	}
+}
+
+func TestLoadEstimatorTracksBusyCores(t *testing.T) {
+	l := newLoadEstimator(12)
+	for i := 0; i < 360; i++ { // 30 minutes of 5 s samples at 50% of 12 cores
+		l.add(50, 5)
+	}
+	l1, l5, l15, ok := l.loads()
+	if !ok || l1 < 5.9 || l1 > 6.1 || l5 < 5.9 || l15 < 5.9 {
+		t.Errorf("steady 50%% of 12 cores should give ~6.0, got %.2f %.2f %.2f", l1, l5, l15)
+	}
+	for i := 0; i < 24; i++ { // 2 minutes idle: the 1-minute average falls faster than the 15-minute one
+		l.add(0, 5)
+	}
+	a, _, c, _ := l.loads()
+	if !(a < 1.5 && c > 4.5 && a < c) {
+		t.Errorf("after 2 idle minutes l1=%.2f l15=%.2f", a, c)
+	}
+	if v, ok := l.takeUsage(); !ok || v < 40 || v > 50 {
+		t.Errorf("average usage = %.1f", v)
+	}
+	if _, ok := l.takeUsage(); ok {
+		t.Errorf("takeUsage must reset")
+	}
+}
+
+func TestConfiguredOrder(t *testing.T) {
+	env := testEnv(t, "cpu")
+	env.Mod.TopProcesses = false
+	env.Mod.Order = 33
+	res, err := NewCPU(env).Collect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if get(t, res.Outputs[0].State, "module.order") != "33" {
+		t.Errorf("order override ignored")
+	}
+}
+
+func TestDecideConnectedAndTrimBuild(t *testing.T) {
+	if decideConnected("OK", 0, 0, false) {
+		t.Error("nothing says connected")
+	}
+	for _, c := range []bool{decideConnected("Up", 0, 0, false), decideConnected("", 1, 0, false), decideConnected("", 0, 1, false), decideConnected("OK", 0, 0, true)} {
+		if !c {
+			t.Error("one positive signal must be enough")
+		}
+	}
+	if trimBuild("10.0.19045.6466 Build 19045.6466") != "10.0.19045.6466" || trimBuild("6.1") != "6.1" {
+		t.Error("trimBuild wrong")
 	}
 }
